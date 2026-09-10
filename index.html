@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TecniFlow · Punto Placa</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#inicio" data-route="dashboard" aria-label="TecniFlow, ir al inicio">
+          <span class="mark" aria-hidden="true"><i></i><i></i><i></i><b>✓</b></span>
+          <span><strong>TecniFlow</strong><small>Punto Placa</small></span>
+        </a>
+        <nav aria-label="Navegación principal">
+          <button class="nav-item active" data-route="dashboard">▦ <span>Inicio</span></button>
+          <button class="nav-item" data-route="orders">▤ <span>Órdenes</span></button>
+          <button class="nav-item nav-new" data-route="new-order">＋ <span>Nueva orden</span></button>
+          <button class="nav-item" data-route="clients">◉ <span>Clientes</span></button>
+          <button class="nav-item" data-route="warranties">▧ <span>Garantías</span></button>
+        </nav>
+        <div class="sidebar-bottom">
+          <button class="nav-item" data-route="activity">◷ <span>Actividad</span></button>
+          <button class="nav-item" data-route="settings">⚙ <span>Configuración</span></button>
+          <div class="profile"><span>MP</span><div><strong>Martín Pérez</strong><small>Propietario</small></div></div>
+        </div>
+      </aside>
+      <main id="app" class="content" tabindex="-1"></main>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
