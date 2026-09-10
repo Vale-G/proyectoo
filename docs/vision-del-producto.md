@@ -224,6 +224,13 @@ Taller
 
 Para la versión comercial, toda entidad de negocio debe pertenecer a un taller y las reglas de acceso deben impedir que una empresa consulte registros de otra.
 
+### Decisiones ya incorporadas en el arranque técnico
+
+- La aplicación usa Next.js con TypeScript y Server Actions; no depende de API routes para el flujo inicial de órdenes.
+- PostgreSQL separa taller, cliente, equipo, orden e historial de estados, en lugar de duplicar datos de cliente dentro de cada orden.
+- El número de orden es correlativo e interno. El enlace público se resuelve exclusivamente con un token aleatorio de 256 bits, distinto del número visible en el comprobante.
+- Las transiciones de estado se validan del lado del servidor. Una orden no puede saltar, por ejemplo, de "esperando aprobación" a "entregado".
+
 ## 12. Principios de producto
 
 1. Crear una orden debe ser más rápido que escribirla en un cuaderno.

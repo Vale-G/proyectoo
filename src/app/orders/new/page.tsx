@@ -1,0 +1,15 @@
+import Link from "next/link";
+import { createRepairOrder } from "@/app/actions";
+import { AppFrame } from "@/app/page";
+
+export default function NewOrderPage() {
+  return <AppFrame><header className="page-header"><div><p className="eyebrow">Recepción de equipo</p><h1>Nueva orden</h1><p>Guardá lo necesario para recibir el equipo. El diagnóstico se completa después.</p></div><Link className="button secondary" href="/orders">Cancelar</Link></header>
+    <form action={createRepairOrder} className="form-grid"><section className="panel form-section"><h2>1. Cliente</h2><div className="fields"><Field label="Nombre y apellido" name="customerName" required /><Field label="Teléfono / WhatsApp" name="phone" required /><Field label="Correo electrónico" name="email" type="email" /></div></section>
+      <section className="panel form-section"><h2>2. Equipo</h2><div className="fields"><label><span>Categoría</span><select name="category" defaultValue="Celular / Tablet"><option>Celular / Tablet</option><option>Notebook / PC</option><option>Consola / Joystick</option><option>TV / Monitor</option><option>Otro equipo electrónico</option></select></label><Field label="Marca" name="brand" /><Field label="Modelo" name="model" required /><Field label="Color" name="color" /><Field label="IMEI / número de serie" name="serialNumber" /><Field label="Accesorios recibidos" name="accessories" className="wide" /></div></section>
+      <section className="panel form-section"><h2>3. Recepción y trabajo</h2><div className="fields"><label className="wide"><span>Falla declarada por el cliente</span><textarea name="reportedIssue" required placeholder="Ej.: No enciende desde ayer después de una caída." /></label><label className="wide"><span>Estado físico / observaciones</span><textarea name="intakeCondition" placeholder="Ej.: Pantalla rota, marco golpeado, equipo con señales de humedad." /></label><Field label="Solución propuesta — opcional" name="proposedSolution" className="wide" /><Field label="Presupuesto estimado (ARS)" name="estimate" inputMode="numeric" /><Field label="Seña recibida (ARS)" name="deposit" inputMode="numeric" /><label><span>Estado inicial</span><select name="status" defaultValue="received"><option value="received">Recibido</option><option value="diagnosing">En diagnóstico</option><option value="awaiting_approval">Esperando aprobación</option><option value="awaiting_part">Esperando repuesto</option></select></label></div><label className="consent"><input type="checkbox" required /> Confirmo que se registró el estado del equipo y se aceptaron las condiciones de servicio.</label></section>
+      <div className="form-actions"><Link className="button secondary" href="/orders">Cancelar</Link><button className="button primary" type="submit">Crear orden</button></div>
+    </form>
+  </AppFrame>;
+}
+
+function Field({ label, name, type = "text", required, className, inputMode }: { label: string; name: string; type?: string; required?: boolean; className?: string; inputMode?: "numeric" }) { return <label className={className}><span>{label}</span><input name={name} type={type} required={required} inputMode={inputMode} /></label>; }
