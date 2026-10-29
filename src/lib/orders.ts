@@ -91,6 +91,7 @@ export async function getOrder(id: string) {
 }
 
 export async function getPublicOrder(token: string) {
+  if (!/^[a-f0-9]{64}$/.test(token)) return null;
   const database = db();
   const [order] = await database.select({
     orderNumber: repairOrders.orderNumber,
