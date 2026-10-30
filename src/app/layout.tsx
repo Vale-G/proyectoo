@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TecniFlow · Punto Placa",
+  title: "OmniFix · Gestión del taller",
   description: "Gestión inteligente para talleres técnicos.",
 };
 

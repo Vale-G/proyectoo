@@ -1,5 +1,7 @@
 "use server";
 
+import { requireWorkshopAccess } from "@/lib/auth";
+
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -20,6 +22,7 @@ function moneyToCents(value: string | undefined) {
 }
 
 export async function createRepairOrder(formData: FormData) {
+  await requireWorkshopAccess();
   const status = formData.get("status")?.toString() as RepairStatus;
   if (!repairStatus.enumValues.includes(status)) throw new Error("Estado de orden inválido.");
   const order = await createOrder({
@@ -37,6 +40,7 @@ export async function createRepairOrder(formData: FormData) {
 }
 
 export async function changeRepairStatus(formData: FormData) {
+  await requireWorkshopAccess();
   const id = required(formData, "orderId");
   const nextStatus = formData.get("status")?.toString() as RepairStatus;
   if (!repairStatus.enumValues.includes(nextStatus)) throw new Error("Estado de orden inválido.");
@@ -48,9 +52,12 @@ export async function changeRepairStatus(formData: FormData) {
   const workshop = await ensureWorkshop();
   const database = db();
   const note = formData.get("note")?.toString().trim() || null;
-  await database.update(repairOrders).set({ status: nextStatus, updatedAt: new Date() })
-    .where(and(eq(repairOrders.id, id), eq(repairOrders.workshopId, workshop.id)));
-  await database.insert(repairOrderEvents).values({ orderId: id, fromStatus: order.status, toStatus: nextStatus, note });
+  await database.transaction(async (tx) => {
+  const changed = await tx.update(repairOrders).set({ status: nextStatus, updatedAt: new Date() })
+    .where(and(eq(repairOrders.id, id), eq(repairOrders.workshopId, workshop.id), eq(repairOrders.status, order.status))).returning({ id: repairOrders.id });
+  if (!changed.length) throw new Error("La orden cambió. Recargá la página y volvé a intentar.");
+  await tx.insert(repairOrderEvents).values({ orderId: id, fromStatus: order.status, toStatus: nextStatus, note });
+  });
   revalidatePath("/");
   revalidatePath(`/orders/${id}`);
 }

@@ -1,12 +1,12 @@
-# Visión del producto: Punto Placa y TecniFlow
+# Visión del producto: OmniFix y su gestión de taller
 
 > Documento de definición inicial. Resume las decisiones tomadas antes de construir el MVP y sirve como referencia viva del proyecto.
 
 ## 1. Idea y propósito
 
-**Punto Placa** será la marca de un taller de diagnóstico y reparación electrónica: celulares, tablets, notebooks, computadoras, consolas, joysticks, televisores, monitores y otros equipos.
+**OmniFix** será la marca de un taller de diagnóstico y reparación electrónica: celulares, tablets, notebooks, computadoras, consolas, joysticks, televisores, monitores y otros equipos.
 
-**TecniFlow** será la plataforma que ordena la operación del taller. Nace para el uso diario de Punto Placa y, tras validarse en trabajo real, podrá ofrecerse a otros talleres como servicio.
+**OmniFix** será la plataforma que ordena la operación del taller. Nace para el uso diario de OmniFix y, tras validarse en trabajo real, podrá ofrecerse a otros talleres como servicio.
 
 La promesa del producto es:
 
@@ -16,8 +16,8 @@ La promesa del producto es:
 
 | Marca | Rol | Personalidad | Bajada sugerida |
 | --- | --- | --- | --- |
-| Punto Placa | Taller y cara visible ante el cliente | Técnica, cercana, robusta y confiable | Servicio técnico de electrónica |
-| TecniFlow | Plataforma de gestión | Profesional, moderna, organizada y escalable | Gestión inteligente para talleres técnicos |
+| OmniFix | Taller y cara visible ante el cliente | Técnica, cercana, robusta y confiable | Servicio técnico de electrónica |
+| OmniFix | Plataforma de gestión | Profesional, moderna, organizada y escalable | Gestión inteligente para talleres técnicos |
 
 El símbolo propuesto es una **placa o circuito estilizado con una tilde**. La placa representa electrónica y diagnóstico; las pistas representan conexiones y proceso; la tilde expresa control, trabajo verificado y reparación finalizada.
 
@@ -35,7 +35,7 @@ El símbolo propuesto es una **placa o circuito estilizado con una tilde**. La p
 
 Un taller suele depender de cuadernos, chats y memoria para saber qué recibió, qué se probó, qué repuesto falta, qué presupuesto se aprobó y cuándo retirar un equipo. Eso crea pérdidas de tiempo, confusiones y poca visibilidad para el cliente.
 
-TecniFlow centraliza cada orden de reparación y crea un historial verificable de recepción, diagnóstico, pagos, reparación, pruebas, garantía y entrega.
+OmniFix centraliza cada orden de reparación y crea un historial verificable de recepción, diagnóstico, pagos, reparación, pruebas, garantía y entrega.
 
 ## 4. Usuarios
 
@@ -121,7 +121,7 @@ No todas las órdenes recorren todos los estados. Un cambio de pantalla puede pa
 
 ### Copia para cliente
 
-- Datos de Punto Placa, número de orden y QR.
+- Datos de OmniFix, número de orden y QR.
 - Cliente, equipo, falla, accesorios y estado físico resumido.
 - Presupuesto o aviso de diagnóstico pendiente.
 - Seña, saldo, fecha estimada y condiciones principales.
@@ -155,7 +155,7 @@ El MVP tiene un solo objetivo: gestionar de punta a punta una reparación real s
 
 Incluye:
 
-- Cuenta y configuración básica de Punto Placa.
+- Cuenta y configuración básica de OmniFix.
 - Clientes y búsqueda por nombre/teléfono.
 - Órdenes, equipos, fotos y checklists básicos.
 - Estados, diagnóstico, presupuesto, seña, pagos y saldo.
@@ -238,4 +238,4 @@ Para la versión comercial, toda entidad de negocio debe pertenecer a un taller 
 3. El cliente entiende el progreso sin ver datos privados ni tecnicismos confusos.
 4. La IA apoya el criterio técnico; no aprueba presupuestos ni ejecuta decisiones críticas por sí sola.
 5. Los datos deben poder respaldarse y exportarse.
-6. Punto Placa valida cada función antes de convertirla en una función comercial de TecniFlow.
+6. OmniFix valida cada función antes de convertirla en una función comercial de OmniFix.

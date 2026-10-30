@@ -1,6 +1,6 @@
-# TecniFlow · Punto Placa
+# OmniFix · Gestión del taller
 
-Aplicación inicial de **TecniFlow**, el sistema de gestión para **Punto Placa** y futuros talleres de reparación electrónica. Esta ya no es una maqueta de `localStorage`: usa **Next.js + TypeScript + PostgreSQL + Drizzle ORM**, Server Actions y un modelo de datos separado para cliente, equipo y orden.
+Aplicación inicial de **OmniFix**, el sistema de gestión para **OmniFix** y futuros talleres de reparación electrónica. Esta ya no es una maqueta de `localStorage`: usa **Next.js + TypeScript + PostgreSQL + Drizzle ORM**, Server Actions y un modelo de datos separado para cliente, equipo y orden.
 
 La definición funcional completa está en [`docs/vision-del-producto.md`](docs/vision-del-producto.md).
 
@@ -37,10 +37,14 @@ docker compose exec -T postgres psql -U tecniflow -d tecniflow < drizzle/0000_in
 npm run dev
 ```
 
-Abrí <http://localhost:3000>. El primer acceso crea automáticamente el taller inicial **Punto Placa**. Después podés crear órdenes reales desde `/orders/new`.
+Abrí <http://localhost:3000>. El primer acceso crea automáticamente el taller inicial **OmniFix**. Después podés crear órdenes reales desde `/orders/new`.
 
 ## Seguridad y límites actuales
 
 - El portal público busca por `publicToken` aleatorio, no por `orderNumber`; ese token se debe codificar en el QR cuando se implemente su generación.
 - El portal no selecciona ni expone IMEI/serie, fotos, notas internas, diagnóstico ni montos.
 - Aún falta autenticación, carga de fotos, generación física de PDF/QR, pagos, inventario y la separación multiempresa completa. Esas funciones siguen la hoja de ruta del documento de visión.
+
+## Acceso al taller
+
+Configurar `WORKSHOP_ADMIN_USER` y `WORKSHOP_ADMIN_PASSWORD` (clave única de al menos 20 caracteres). El panel redirige a `/login`, con formulario y sesión de 8 horas. No hay usuarios predeterminados ni registro público. Sin ellas, `/login` explica qué falta configurar; no abre diálogos del navegador. Catálogo y seguimiento permanecen públicos. Usar HTTPS en producción. Ver `docs/OMNIFIX_INTEGRATION.md` para los pendientes antes de publicar.
