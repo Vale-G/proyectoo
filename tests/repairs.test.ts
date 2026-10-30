@@ -85,7 +85,10 @@ test('PostgreSQL integration using production postgres.js driver, no external da
       assert.equal(await store.getPhoto('00000000-0000-4000-8000-000000000000',order.id,photo.id),null);
       await assert.rejects(store.addPhoto(workshop.id,order.id,Buffer.from('<svg/>'),'image/svg+xml','malformed'));
       await assert.rejects(store.addPhoto(workshop.id,order.id,Buffer.alloc(3*1024*1024),'image/png','large'));
-      const fresh = await store.getOrder(workshop.id,order.id); assert.equal('content' in fresh!.photos[0],false);
+      for(let i=0;i<4;i++) await store.addPhoto(workshop.id,order.id,png,'image/png','PRIVATE-PHOTO');
+      const competing = await Promise.allSettled([store.addPhoto(workshop.id,order.id,png,'image/png','a'),otherStore.addPhoto(workshop.id,order.id,png,'image/png','b')]);
+      assert.equal(competing.filter(x=>x.status==='fulfilled').length,1);
+      const fresh = await store.getOrder(workshop.id,order.id); assert.equal(fresh!.photos.length,6);assert.equal('content' in fresh!.photos[0],false);
     });
     await t.test('rotating tracking token revokes old links without changing state', async () => {
       const rotated=await store.rotateToken(workshop.id,order.id,3);
@@ -112,7 +115,7 @@ test('PostgreSQL integration using production postgres.js driver, no external da
         for(const page of parsed.getPages()) {assert.ok(Math.abs(page.getWidth()-595.28)<1);assert.ok(Math.abs(page.getHeight()-841.89)<1);}
         const text=execFileSync('pdftotext',[`tmp/pdfs/${kind}.pdf`,'-'],{encoding:'utf8'});
         for(const secret of ['PRIVATE-IMEI','PRIVATE-DIAGNOSIS','PRIVATE-APPROVAL','PRIVATE-PHOTO','PRIVATE-LINE','1234567']) assert.equal(text.includes(secret),false,secret);
-        if(kind==='intake'){assert.match(text,/45\.000,50/);assert.equal(text.includes('99.000'),false);}else assert.match(text,/99\.000/);assert.match(text,/NO AUTORIZADO/);assert.match(text,/omnifix-2026-10-30-draft-1/);
+        if(kind==='intake'){assert.match(text,/45\.000,50/);assert.equal(text.includes('99.000'),false);}else assert.match(text,/99\.000/);assert.equal(/12\.345,67|3\.456,78/.test(text),false);assert.match(text,/NO AUTORIZADO/);assert.match(text,/omnifix-2026-10-30-draft-1/);
         execFileSync('pdftoppm',['-scale-to','1600','-png',`tmp/pdfs/${kind}.pdf`,`tmp/pdfs/${kind}`]);
         let decoded=false;
         for(const filename of (await fs.readdir('tmp/pdfs')).filter(x=>x.startsWith(kind+'-')&&x.endsWith('.png'))) {
