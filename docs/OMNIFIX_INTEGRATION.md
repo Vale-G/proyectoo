@@ -1,24 +1,22 @@
-# OmniFix: catálogo y seguimiento
+# Integración OmniFix: catálogo, seguimiento y taller privado
 
-## Cambio inicial
+- Marca visible OmniFix; se conservan nombres técnicos de PostgreSQL/Docker/localStorage para mantener compatibilidad.
+- `/catalogo` muestra servicios y redes sin ciudades ni precios inventados.
+- `/seguimiento` acepta el enlace o token privado y rechaza formatos inválidos antes de consultar PostgreSQL.
+- Seguimiento con noindex y no-referrer; no publica datos del cliente, serie, importes ni notas internas.
+- Panel y Server Actions protegidos mediante autenticación HTTP Basic; validación adicional antes de acceder a los datos privados. Las páginas públicas sólo permiten GET/HEAD sin credenciales.
+- Sin configuración de acceso, el panel queda cerrado. Requiere `WORKSHOP_ADMIN_USER` y `WORKSHOP_ADMIN_PASSWORD` (mínimo 20 caracteres, única y generada aleatoriamente), configurados en el proveedor de hosting. Usar exclusivamente HTTPS en producción.
+- Esta primera versión tiene un único propietario. Para múltiples empleados hacen falta cuentas individuales, sesiones y roles. El navegador administra las credenciales Basic; no hay cierre de sesión propio.
 
-- `/catalogo`: servicios de celulares, consolas, joysticks y personalización; enlaces de Instagram/Facebook del dueño, sin ciudades ni precios inventados.
-- `/seguimiento`: entrada del enlace privado o token de 64 caracteres hexadecimales; navegación interna, sin redirección a URLs aportadas por el visitante.
-- `/seguimiento/[token]`: reutiliza el seguimiento existente y añade regreso al catálogo.
-- Validación del token antes de abrir conexión; metadatos noindex/nofollow y política no-referrer para seguimiento.
-- No se cambió la marca/configuración existente Punto Placa/TecniFlow ni se migraron registros. Confirmar cómo conviven esas marcas antes de cambiar datos existentes.
+## Validación local
 
-## Validación
+`npm run lint`, `npm run build` y `node --test tests/auth.test.mjs` aprobados. Verificación HTTP del build: catálogo y entrada de seguimiento 200; panel y creación sin credenciales 401; POST público sin credenciales 401; token inválido 404; creación con credenciales válidas 200.
 
-- `npm ci --ignore-scripts`: completado.
-- `npm run lint` (TypeScript, no ESLint): aprobado.
-- `npm run build`: aprobado; catálogo y entrada de seguimiento estáticos.
-- Sin base PostgreSQL de prueba configurada: no se verificó alta/cambio/consulta de una orden real ni concurrencia.
+No se conectó ni migró una base real, ni se validó crear/cambiar/consultar una orden completa. No desplegado ni fusionado.
 
-## Bloqueos de lanzamiento
+## Pendientes de puesta en marcha
 
-La app base NO tiene autenticación del panel ni de Server Actions. No desplegar públicamente esta rama ni conectarla al catálogo público hasta proteger lecturas y escrituras administrativas. Noindex no sustituye autenticación. El token es una credencial de acceso y debe mantenerse privado; evitar registrarlo en analítica/logs externos.
-
-Próximo incremento: autenticación y autorización en servidor; entorno aislado con datos ficticios; pruebas alta → actualización → consulta pública sin datos personales. Revisar transacciones y numeración de órdenes (actualmente cuenta filas + 1, expuesto a concurrencia). Luego adaptar marca del taller de forma explícita y añadir QR, revocación de enlaces y presupuesto público aprobado. El portal actual no muestra montos.
-
-No hubo despliegue, migración, cambios en la base ni merge.
+1. Habilitar acceso de la conexión de Vercel al equipo del dueño (la API devuelve 403).
+2. Configurar PostgreSQL y credenciales privadas en un entorno de prueba.
+3. Resolver transacciones y generación concurrente del correlativo; actualmente el alta cuenta filas y puede repetir números.
+4. Probar recepción, cambio de estado, historial y seguimiento con una orden ficticia antes de publicar.

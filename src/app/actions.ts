@@ -1,5 +1,7 @@
 "use server";
 
+import { requireWorkshopAccess } from "@/lib/auth";
+
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -20,6 +22,7 @@ function moneyToCents(value: string | undefined) {
 }
 
 export async function createRepairOrder(formData: FormData) {
+  await requireWorkshopAccess();
   const status = formData.get("status")?.toString() as RepairStatus;
   if (!repairStatus.enumValues.includes(status)) throw new Error("Estado de orden inválido.");
   const order = await createOrder({
@@ -37,6 +40,7 @@ export async function createRepairOrder(formData: FormData) {
 }
 
 export async function changeRepairStatus(formData: FormData) {
+  await requireWorkshopAccess();
   const id = required(formData, "orderId");
   const nextStatus = formData.get("status")?.toString() as RepairStatus;
   if (!repairStatus.enumValues.includes(nextStatus)) throw new Error("Estado de orden inválido.");

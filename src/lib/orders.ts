@@ -1,16 +1,18 @@
+import { requireWorkshopAccess } from "./auth";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { db } from "@/db/client";
 import { customers, devices, repairOrderEvents, repairOrders, workshops, type RepairStatus } from "@/db/schema";
 
 export async function ensureWorkshop() {
+  await requireWorkshopAccess();
   const database = db();
   const existing = await database.select().from(workshops).limit(1);
   if (existing[0]) return existing[0];
 
   const [workshop] = await database.insert(workshops).values({
-    name: "Punto Placa",
-    publicName: "Punto Placa",
+    name: "OmniFix",
+    publicName: "OmniFix",
   }).returning();
   return workshop;
 }
