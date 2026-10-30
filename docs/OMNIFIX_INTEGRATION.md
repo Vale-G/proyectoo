@@ -12,11 +12,11 @@
 
 `npm run lint`, `npm run build` y `node --test tests/auth.test.mjs` aprobados. Verificación HTTP del build: catálogo y entrada de seguimiento 200; panel y creación sin credenciales 401; POST público sin credenciales 401; token inválido 404; creación con credenciales válidas 200.
 
-No se conectó ni migró una base real, ni se validó crear/cambiar/consultar una orden completa. No desplegado ni fusionado.
+Se creó el esquema inicial en el proyecto Supabase de UNNOBA zgihtbiyhhvmxjfzdxjg, con RLS y sin acceso para anon/authenticated. Aún falta configurar DATABASE_URL y validar el flujo de aplicación contra esa base. Se inició un despliegue desde archivos en Vercel omnifix-taller; no fusionado.
 
 ## Pendientes de puesta en marcha
 
-1. Habilitar acceso de la conexión de Vercel al equipo del dueño (la API devuelve 403).
+1. Cuenta UNNOBA conectada y proyecto Vercel omnifix-taller creado. Vincular GitHub para futuros despliegues automáticos.
 2. Configurar PostgreSQL y credenciales privadas en un entorno de prueba.
-3. Resolver transacciones y generación concurrente del correlativo; actualmente el alta cuenta filas y puede repetir números.
+3. Alta transaccional, correlativo con máximo numérico y bloqueo por taller, y cambio de estado con comparación del estado anterior implementados; falta comprobar concurrencia contra PostgreSQL real.
 4. Probar recepción, cambio de estado, historial y seguimiento con una orden ficticia antes de publicar.

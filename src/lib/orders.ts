@@ -1,12 +1,13 @@
 import { requireWorkshopAccess } from "./auth";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { db } from "@/db/client";
 import { customers, devices, repairOrderEvents, repairOrders, workshops, type RepairStatus } from "@/db/schema";
 
 export async function ensureWorkshop() {
   await requireWorkshopAccess();
-  const database = db();
+  return db().transaction(async (database) => {
+  await database.execute(sql`select pg_advisory_xact_lock(837401)`);
   const existing = await database.select().from(workshops).limit(1);
   if (existing[0]) return existing[0];
 
@@ -15,6 +16,7 @@ export async function ensureWorkshop() {
     publicName: "OmniFix",
   }).returning();
   return workshop;
+  });
 }
 
 export async function listOrders(query?: string, status?: RepairStatus) {
@@ -120,7 +122,8 @@ export async function createOrder(input: {
   estimateCents?: string; depositCents?: string; status: RepairStatus;
 }) {
   const workshop = await ensureWorkshop();
-  const database = db();
+  return db().transaction(async (database) => {
+  await database.execute(sql`select pg_advisory_xact_lock(hashtext(${workshop.id}))`);
   const [customer] = await database.insert(customers).values({
     workshopId: workshop.id, fullName: input.customerName, phone: input.phone, email: input.email || null,
   }).returning();
@@ -128,9 +131,9 @@ export async function createOrder(input: {
     workshopId: workshop.id, customerId: customer.id, category: input.category, brand: input.brand || null,
     model: input.model, color: input.color || null, serialNumber: input.serialNumber || null,
   }).returning();
-  const existing = await database.select({ id: repairOrders.id }).from(repairOrders)
+  const existing = await database.select({ last: sql<string>`coalesce(max(case when ${repairOrders.orderNumber} ~ '^[0-9]+$' then ${repairOrders.orderNumber}::numeric else 0 end), 0)` }).from(repairOrders)
     .where(eq(repairOrders.workshopId, workshop.id));
-  const orderNumber = String(existing.length + 1).padStart(5, "0");
+  const orderNumber = String(BigInt(existing[0].last) + 1n).padStart(5, "0");
   const publicToken = randomBytes(32).toString("hex");
   const [order] = await database.insert(repairOrders).values({
     workshopId: workshop.id, deviceId: device.id, orderNumber, publicToken, status: input.status,
@@ -142,4 +145,5 @@ export async function createOrder(input: {
     orderId: order.id, toStatus: input.status, note: "Orden creada durante la recepción.",
   });
   return order;
+  });
 }
