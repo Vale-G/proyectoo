@@ -47,4 +47,4 @@ Abrí <http://localhost:3000>. El primer acceso crea automáticamente el taller 
 
 ## Acceso al taller
 
-Configurar `WORKSHOP_ADMIN_USER` y `WORKSHOP_ADMIN_PASSWORD` (clave única de al menos 20 caracteres). El navegador solicita las credenciales al entrar al panel. Sin ellas, el panel queda cerrado. Catálogo y seguimiento permanecen públicos. Usar HTTPS en producción. Ver `docs/OMNIFIX_INTEGRATION.md` para los pendientes antes de publicar.
+Configurar `WORKSHOP_ADMIN_USER` y `WORKSHOP_ADMIN_PASSWORD` (clave única de al menos 20 caracteres). El panel redirige a `/login`, con formulario y sesión de 8 horas. No hay usuarios predeterminados ni registro público. Sin ellas, `/login` explica qué falta configurar; no abre diálogos del navegador. Catálogo y seguimiento permanecen públicos. Usar HTTPS en producción. Ver `docs/OMNIFIX_INTEGRATION.md` para los pendientes antes de publicar.

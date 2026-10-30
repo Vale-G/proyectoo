@@ -1,9 +1,8 @@
-import { headers } from "next/headers";
-import { validWorkshopCredentials } from "./auth-credentials";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { adminConfig, SESSION_COOKIE, validSession } from "./auth-credentials";
 
 export async function requireWorkshopAccess() {
-  const requestHeaders = await headers();
-  if (!validWorkshopCredentials(requestHeaders.get("authorization"), process.env.WORKSHOP_ADMIN_USER, process.env.WORKSHOP_ADMIN_PASSWORD)) {
-    throw new Error("Acceso al taller no autorizado.");
-  }
+  const cookieStore = await cookies();
+  if (!validSession(cookieStore.get(SESSION_COOKIE)?.value, adminConfig())) redirect("/login");
 }

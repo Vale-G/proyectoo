@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireWorkshopAccess } from "./auth";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
@@ -6,6 +7,7 @@ import { customers, devices, repairOrderEvents, repairOrders, workshops, type Re
 
 export async function ensureWorkshop() {
   await requireWorkshopAccess();
+  if (!process.env.DATABASE_URL) redirect("/configuracion");
   return db().transaction(async (database) => {
   await database.execute(sql`select pg_advisory_xact_lock(837401)`);
   const existing = await database.select().from(workshops).limit(1);
