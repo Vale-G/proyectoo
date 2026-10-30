@@ -16,3 +16,5 @@ function createDatabase() {
 export function db() {
   return cached ??= createDatabase();
 }
+
+export type Database = ReturnType<typeof createDatabase>;
