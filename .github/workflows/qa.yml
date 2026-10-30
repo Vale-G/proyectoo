@@ -22,9 +22,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-    env:
-      OMNIFIX_TEST_DATABASE_URL: postgres://postgres:qa-only-local-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/omnifix_test
-      OMNIFIX_ALLOW_TEST_DATABASE: '1'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -36,6 +33,9 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - run: npm ci --ignore-scripts
       - run: npm run verify
+        env:
+          OMNIFIX_TEST_DATABASE_URL: postgres://postgres:qa-only-local-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/omnifix_test
+          OMNIFIX_ALLOW_TEST_DATABASE: '1'
       - run: npm audit --omit=dev --audit-level=high
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
