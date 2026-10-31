@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import { assertDatabaseReady } from '../src/lib/database-readiness';
 import { PDFDocument } from 'pdf-lib';
 import { PNG } from 'pngjs';
 import jsQR from 'jsqr';
@@ -18,11 +19,22 @@ test('PostgreSQL integration using production postgres.js driver, no external da
   const env = await testDatabase();
   const store = repairStore(env.database);
   const second = env.connect();
-  const otherStore = repairStore(second.database);
+  // PGlite has one backend; use the application's one-connection queue locally.
+  // CI MUST use distinct native backends (asserted below) for cross-instance contention.
+  const otherStore = env.native ? repairStore(second.database) : store;
   try {
-    await t.test('migration closes all six tables to Supabase public roles', async () => {
+    await t.test('Preview refuses an unmarked or production-marked database before writes', async () => {
+      await assertDatabaseReady(env.database, true);
+      await env.pg.exec("DELETE FROM public.omnifix_environment");
+      await assert.rejects(assertDatabaseReady(env.database,true), /Preview bloqueado/);
+      await env.pg.exec("INSERT INTO public.omnifix_environment(id,kind) VALUES(true,'preview')");
+      await env.pg.exec("UPDATE public.omnifix_environment SET kind='production'");
+      await assert.rejects(assertDatabaseReady(env.database,true), /Preview bloqueado/);
+      await env.pg.exec("UPDATE public.omnifix_environment SET kind='preview'");
+    });
+    await t.test('migration closes all seven tables to Supabase public roles', async () => {
       const result = await env.pg.query<{relname:string;relrowsecurity:boolean;anon_select:boolean;authenticated_select:boolean}>("select c.relname,c.relrowsecurity,has_table_privilege('anon',c.oid,'SELECT') as anon_select,has_table_privilege('authenticated',c.oid,'SELECT') as authenticated_select from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'");
-      assert.equal(result.rows.length,6);
+      assert.deepEqual(result.rows.map(row=>row.relname).sort(), ['workshops','customers','devices','repair_orders','repair_order_events','repair_photos','omnifix_environment'].sort());
       for(const row of result.rows){assert.equal(row.relrowsecurity,true,row.relname);assert.equal(row.anon_select,false,row.relname);assert.equal(row.authenticated_select,false,row.relname);}
     });
     await t.test('native CI uses independent PostgreSQL backends for contention', { skip: !env.native }, async () => {
@@ -108,7 +120,7 @@ test('PostgreSQL integration using production postgres.js driver, no external da
     await t.test('A4 PDFs have readable QR and exclude private fields', async () => {
       const fresh=(await store.getOrder(workshop.id,order.id))!;
       await mkdir('tmp/pdfs',{recursive:true});
-      for(const kind of ['intake','delivery'] as const) {
+      for(const kind of ['intake','delivery','quote'] as const) {
         const pdf=await buildReceipt(fresh,'https://omnifix.example',kind);
         const fs=await import('node:fs/promises');await fs.writeFile(`tmp/pdfs/${kind}.pdf`,pdf.bytes);
         const parsed=await PDFDocument.load(pdf.bytes);assert.ok(parsed.getPageCount()>=2);
@@ -116,6 +128,7 @@ test('PostgreSQL integration using production postgres.js driver, no external da
         const text=execFileSync('pdftotext',[`tmp/pdfs/${kind}.pdf`,'-'],{encoding:'utf8'});
         for(const secret of ['PRIVATE-IMEI','PRIVATE-DIAGNOSIS','PRIVATE-APPROVAL','PRIVATE-PHOTO','PRIVATE-LINE','1234567']) assert.equal(text.includes(secret),false,secret);
         if(kind==='intake'){assert.match(text,/45\.000,50/);assert.equal(text.includes('99.000'),false);}else assert.match(text,/99\.000/);assert.equal(/12\.345,67|3\.456,78/.test(text),false);assert.match(text,/NO AUTORIZADO/);assert.match(text,/omnifix-2026-10-30-draft-1/);
+        if(kind==='quote') {assert.match(text,/PRESUPUESTO/);assert.match(text,/No acredita aceptaci/);assert.match(text,/Total de presupuesto/);}
         execFileSync('pdftoppm',['-scale-to','1600','-png',`tmp/pdfs/${kind}.pdf`,`tmp/pdfs/${kind}`]);
         let decoded=false;
         for(const filename of (await fs.readdir('tmp/pdfs')).filter(x=>x.startsWith(kind+'-')&&x.endsWith('.png'))) {

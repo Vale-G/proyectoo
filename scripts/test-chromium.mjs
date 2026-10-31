@@ -1,8 +1,8 @@
 // Test-only extraction: tar data filter avoids applying archive ownership in rootless CI.
-const { brotliDecompressSync } = require('node:zlib');
-const fs = require('node:fs');
-const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+import { brotliDecompressSync } from 'node:zlib';
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 const output = '/tmp/omnifix-chromium';
 fs.mkdirSync(output, { recursive: true });
 for (const name of fs.readdirSync('node_modules/@sparticuz/chromium/bin')) {

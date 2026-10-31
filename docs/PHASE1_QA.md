@@ -32,3 +32,45 @@ Variables: `DATABASE_URL` (Transaction pooler, `prepare:false` ya configurado), 
 Las pruebas de DB usan PostgreSQL 18 embebido (PGlite) por TCP con el driver `postgres.js` de producción, en memoria y sin conexión a cuentas externas. Se prueban transacciones, rollback, revisiones, recepciones concurrentes, aislamiento, revocación y RLS. El multiplexer de PGlite serializa conexiones; no constituye una prueba de carga de Supavisor ni de despliegue Vercel. La infraestructura nativa PostgreSQL no puede iniciarse en este entorno rootless. El workflow de PR incluye un servicio PostgreSQL 17 efímero y ejecuta las mismas pruebas con dos clientes y PID de backend distintos. El helper sólo acepta OMNIFIX_TEST_DATABASE_URL con loopback/base omnifix_test y una habilitación explícita; crea una base aleatoria propia y sólo destruye esa base al finalizar. Nunca toma DATABASE_URL del usuario. La validación nativa se considera pendiente hasta revisar el run real del PR.
 
 Las condiciones son un borrador revisable. Requieren revisión jurídica local antes del uso comercial y una versión nueva si se cambia el texto. No se incluyen renuncias generales por negligencia propia ni reducción de derechos legales. Fuente de referencia: Ley 24.240 (Argentina), https://www.argentina.gob.ar/normativa/nacional/ley-24240-638/actualizacion . No constituye dictamen jurídico.
+
+## Reauditoría del Preview y alcance corregido — 2026-10-30
+
+La validación previa sobre el head `c2429de6bc3c3f6535fb08c59cad2e992e18d597` sí pasó en [CI con PostgreSQL 17 real](https://github.com/Vale-G/proyectoo/actions/runs/41122200877): typecheck, tests de integración con conexiones independientes, build, E2E y auditoría de producción. La revisión de Codex sobre ese head no detectó problemas mayores. Eso **no acredita** que un deployment Vercel tenga variables correctas o migraciones aplicadas.
+
+### Hallazgos de esta reauditoría
+
+| Funcionalidad | Estado al auditar | Corrección / evidencia requerida |
+|---|---|---|
+| Estado en garantía | Reload y DB cubiertos | Se amplió E2E para logout, login, reapertura y reload de la misma orden |
+| Presupuesto imprimible | Faltaba documento específico | PDF `?kind=quote`, enlace en detalle, total/seña/pagos/saldo, trabajo y aviso explícito de que no acredita autorización |
+| Aislamiento de Preview | El runtime aceptaba cualquier DATABASE_URL | Barrera de lectura previa a operaciones, marker protegido, migración 0002; no basta una variable booleana del frontend |
+| Lint | El script era alias de tsc | ESLint independiente, gate obligatorio; typecheck se conserva separado |
+| Preview UNNOBA | Bloqueado por base aislada | Acceso recuperado; producción sigue en main 7bb96b7, Preview anterior c2429de. Variables compartidas con todos los entornos; no se probaron escrituras allí |
+| PostgreSQL remoto aislado | Pendiente de provisionar | CI tiene PostgreSQL nativo efímero; no es una base persistente accesible desde Vercel |
+
+### Configuración segura del Preview (pendiente, no aplicada en producción)
+
+1. Crear un proyecto PostgreSQL **separado y vacío**, sin datos ni credenciales productivas. Confirmar organización/costo antes de crear recursos facturables. La cuenta UNNOBA tenía un único proyecto activo al inspeccionar: ese proyecto es producción y no se reutiliza.
+2. En la base aislada, aplicar una sola vez `0000_initial.sql`, `0001_intake_receipts.sql` y `0002_environment_guard.sql`, en ese orden. En una instalación existente, revisar primero el esquema y aplicar solo las pendientes. No ejecutar Drizzle migrate ciegamente: falta historial/journal de estas migraciones SQL manuales.
+3. **Solo en la base aislada**, ejecutar `UPDATE public.omnifix_environment SET kind='preview' WHERE id=true;`. La migración deja `production` por defecto; Preview rechaza esa identidad antes de crear/consultar órdenes. No cambiar este marker en una base real para habilitar pruebas.
+4. En Vercel UNNOBA, proyecto `omnifix-taller`, rama `codex/omnifix-issues-4-5`, agregar variables limitadas al entorno Preview: DATABASE_URL de la base nueva, WORKSHOP_ADMIN_USER y WORKSHOP_ADMIN_PASSWORD exclusivos de QA y APP_URL de ese Preview. No copiar las variables de producción ni publicar secretos.
+5. Volver a desplegar **Preview**, comprobar SHA exacto, login, recepción ficticia, garantía, logout/login/reload, seguimiento y PDF/QR. Verificar el registro ficticio directamente en la base aislada y su ausencia de cualquier proceso de prueba en producción sin consultar datos personales.
+6. Solicitar QA independiente con URL y SHA. Mantener PR sin merge y no promover a producción.
+
+### Límites que siguen abiertos
+
+- No hay URL Preview funcional validada hasta provisionar una base aislada. Branching en Supabase fue rechazado: requiere Pro. No se contrató ni habilitó un plan pago.
+- No se migró ni modificó producción, usuarios reales, credenciales o datos de clientes.
+- El historial guarda eventos de estado y referencias de cambios técnicos/importes; no es un sistema de versiones completas de cada campo ni un archivo inmutable de presupuestos emitidos. El PDF de presupuesto refleja los datos vigentes en el momento de descarga.
+- El consentimiento sigue siendo borrador identificado, pendiente de revisión profesional. No se presenta como certificación jurídica.
+- Los PDF se generan y rasterizan/decodifican en integración; la verificación del despliegue remoto desde computadora y celular sigue pendiente.
+
+### Resultado local de la corrección
+
+`npm run verify`: **APROBADO** (ESLint 0 errores/0 warnings, typecheck, 19 pruebas aprobadas/0 fallos/1 omitida exclusivamente de PID nativo, build Next16.4.3, Chromium E2E actualizado). Auditoría de producción: **0 vulnerabilidades**. PDF de presupuesto rasterizado y QR decodificado; descargas desde viewport de escritorio y móvil cubiertas en E2E. El E2E ahora ejecuta VERCEL_ENV=preview y rechaza una base marcada como producción antes de mostrar el formulario de recepción; luego prueba recepción, garantía inmediata/reload, conflicto obsoleto, privacidad, tokens, PDF y logout/login/reload con garantía persistida.
+
+PGlite solo tiene un backend: localmente se usa la cola de una conexión del driver productivo. Un ensayo local con dos conexiones al mismo backend mostró interferencia transaccional del motor embebido; no se presenta como prueba de contención multiconexión. En CI nativo se mantienen **dos clientes con PID distintos** y los tests simultáneos de estados, fotos y numeración. El nuevo commit requiere su propio run nativo verde; el resultado del run anterior no valida estos cambios.
+
+La suite conserva validaciones reales del driver y no utiliza una URL productiva. Ninguna prueba remota de escritura se ejecutó sin verificar aislamiento.
+
+Auditoría completa tras incorporar ESLint: 20 avisos moderados en herramientas de desarrollo (cadena ESLint/minimatch y Drizzle/esbuild), 0 altos/0 críticos; dependencias de producción: 0. `npm audit fix --ignore-scripts` no ofrece una solución compatible para todos; las sugerencias de `--force` incluyen regresiones mayores como ESLint4/Next config0.2.4/Drizzle0.18.1. No se aplicaron esos downgrades. Estos avisos no se ocultan ni se confunden con la auditoría productiva.

@@ -9,7 +9,7 @@ import { statusLabels } from "./status";
 import { TESTS } from "./intake";
 import { trackingUrl } from "./tracking-url";
 
-export type ReceiptKind = "intake" | "delivery";
+export type ReceiptKind = "intake" | "delivery" | "quote";
 const resultLabel = { passed: "Funciona", failed: "Presenta falla", not_tested: "No realizada" };
 const powerLabel = { on: "Enciende", off: "No enciende", unknown: "No comprobado" };
 const yesNo = { yes: "Sí", no: "No", unknown: "Sin determinar" };
@@ -29,12 +29,20 @@ export function receiptSections(order: RepairOrder, kind: ReceiptKind) {
   } else sections.push(["Pruebas de recepción", "Orden anterior: sin checklist registrado."]);
   if (kind === "intake") sections.push(["Presupuesto / seña al ingresar", order.initialStatus ? `${formatMoney(order.initialEstimateCents)} / ${formatMoney(order.initialDepositCents)}` : "Orden anterior: importes originales no registrados."]);
   else sections.push(["Presupuesto vigente / seña de ingreso", `${formatMoney(order.estimateCents)} / ${formatMoney(order.initialDepositCents ?? order.depositCents)}`]);
+  if (kind === "quote") sections.push(
+    ["Fecha de emisión", formatDate(new Date(), true)],
+    ["Trabajo presupuestado", order.proposedSolution || "Trabajo pendiente de detallar. No acredita autorización."],
+    ["Total de presupuesto", formatMoney(order.estimateCents)],
+    ["Seña y pagos registrados", `${formatMoney(order.depositCents)} + ${formatMoney(order.paidCents)}`],
+    ["Saldo presupuestado", order.estimateCents === null ? "Sin presupuesto registrado" : formatMoney(String(Number(order.estimateCents) - Number(order.depositCents ?? 0) - Number(order.paidCents ?? 0)))],
+    ["Autorización del presupuesto", "Este documento informa el presupuesto vigente al emitirlo. No acredita aceptación del trabajo ni de adicionales. La aceptación de recepción y diagnóstico no sustituye la autorización del presupuesto."]
+  );
   if (kind === "delivery") sections.push(["Entrega registrada", `${formatDate(order.deliveredAt, true)} · Recibió: ${order.deliveredTo ?? 'Sin registrar'}`], ["Accesorios devueltos", order.deliveryAccessories || "Sin accesorios registrados"], ["Garantía comercial informada", order.warrantyUntil ? `Hasta ${formatDate(order.warrantyUntil)}. No limita los derechos legales aplicables.` : "Sin plazo comercial registrado. Se mantienen los derechos legales aplicables."]);
   return sections;
 }
 export async function buildReceipt(order: RepairOrder, base: string, kind: ReceiptKind) {
   const doc = await PDFDocument.create();
-  doc.setTitle(`OmniFix - ${kind === 'intake' ? 'Recepción' : 'Entrega'} #${order.orderNumber}`);
+  doc.setTitle(`OmniFix - ${kind === 'intake' ? 'Recepción' : kind === 'quote' ? 'Presupuesto' : 'Entrega'} #${order.orderNumber}`);
   doc.setAuthor("OmniFix");
   doc.registerFontkit(fontkit);
   const regular = await doc.embedFont(await readFile(path.join(process.cwd(), "public/brand/fonts/inter-latin-400-normal.woff")), { subset: true });
@@ -68,7 +76,7 @@ export async function buildReceipt(order: RepairOrder, base: string, kind: Recei
   }
   function paragraph(text: string, size = 10) { for (const line of lines(text,size)) { room(15); if (line) page.drawText(line,{x:margin,y,font:regular,size,color:ink}); y-=14; } y-=6; }
   function section(title: string, value: string) { room(42); page.drawText(safe(title),{x:margin,y,font:bold,size:10,color:ink});y-=17;paragraph(value); }
-  header(); paragraph(`COMPROBANTE DE ${kind === 'intake' ? 'INGRESO' : 'ENTREGA'} - ORDEN #${order.orderNumber}`, 15);
+  header(); paragraph(`${kind === 'quote' ? 'PRESUPUESTO' : kind === 'intake' ? 'COMPROBANTE DE INGRESO' : 'COMPROBANTE DE ENTREGA'} - ORDEN #${order.orderNumber}`, 15);
   for (const [title,value] of receiptSections(order,kind)) section(title,value);
   room(150); page.drawImage(qr,{x:margin,y:y-115,width:115,height:115});
   page.drawText("Segui el estado desde tu casa",{x:margin+130,y:y-25,font:bold,size:12,color:ink});
