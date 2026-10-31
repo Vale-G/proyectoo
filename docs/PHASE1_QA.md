@@ -74,3 +74,10 @@ PGlite solo tiene un backend: localmente se usa la cola de una conexión del dri
 La suite conserva validaciones reales del driver y no utiliza una URL productiva. Ninguna prueba remota de escritura se ejecutó sin verificar aislamiento.
 
 Auditoría completa tras incorporar ESLint: 20 avisos moderados en herramientas de desarrollo (cadena ESLint/minimatch y Drizzle/esbuild), 0 altos/0 críticos; dependencias de producción: 0. `npm audit fix --ignore-scripts` no ofrece una solución compatible para todos; las sugerencias de `--force` incluyen regresiones mayores como ESLint4/Next config0.2.4/Drizzle0.18.1. No se aplicaron esos downgrades. Estos avisos no se ocultan ni se confunden con la auditoría productiva.
+
+
+## Prueba remota de Preview aislado
+
+Se creó `omnifix-preview-qa` en UNNOBA y se aplicaron0000/0001/0002 exclusivamente allí. La cuenta técnica tiene RLS limitado a un taller ficticio, sin DELETE, sin administración de usuarios ni permisos sobre otros esquemas. Las variables son exclusivas de la rama Preview; no se cambió producción.
+
+El primer E2E real avanzó por recepción/garantía/conflictos/datos técnicos/fotos/privacidad y PDF, pero falló al recargar. Los logs identificaron `statement timeout` en el chequeo de `information_schema.columns`. Se reemplazó por búsqueda indexada de seis atributos en `pg_catalog.pg_attribute` usando `to_regclass`, manteniendo el rechazo si faltan migraciones y el marcador aislado. No se incrementó el timeout del servidor ni se desactivó el guard. Requiere nueva CI y E2E remota antes de aprobación. Los QR de los PDF remotos de recepción/presupuesto fueron decodificados y contrastados con el texto del documento por QA independiente.
