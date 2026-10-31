@@ -3,7 +3,7 @@ import { adminConfig, SESSION_COOKIE, validSession } from "./lib/auth-credential
 
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  const readOnlyPublic = path === "/login" || path === "/catalogo" || path === "/seguimiento" || path.startsWith("/seguimiento/");
+  const readOnlyPublic = path === "/brand/omnifix-original.jpg" || path.startsWith("/brand/fonts/") || path === "/login" || path === "/catalogo" || path === "/seguimiento" || path.startsWith("/seguimiento/");
   if (readOnlyPublic && ["GET", "HEAD"].includes(request.method)) return NextResponse.next();
   if ((path === "/auth/login" || path === "/auth/logout") && request.method === "POST") return NextResponse.next();
   if (validSession(request.cookies.get(SESSION_COOKIE)?.value, adminConfig())) return NextResponse.next();
