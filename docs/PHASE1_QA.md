@@ -23,7 +23,7 @@ La segunda migración habilita RLS y revoca anon/authenticated en las seis tabla
 
 No usar `db:generate` para reaplicar las SQL iniciales: el repositorio partía de SQL manual sin diario de Drizzle. Aplicar estas SQL explícitamente con el proceso de migración de su entorno. No se ha ejecutado `db:migrate` contra producción.
 
-Variables: `DATABASE_URL` (Transaction pooler, `prepare:false` ya configurado), `WORKSHOP_ADMIN_USER`, `WORKSHOP_ADMIN_PASSWORD` de 20+ caracteres; `APP_URL` recomendado como origen HTTPS canónico para enlaces y QR (sin ruta ni secretos). La URL/clave pública de Supabase no sustituyen DATABASE_URL.
+Variables: `DATABASE_URL` (Transaction pooler, `prepare:false` ya configurado), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `WORKSHOP_ADMIN_EMAIL`; `APP_URL` recomendado como origen HTTPS canónico para enlaces y QR (sin ruta ni secretos). La URL/clave pública de Supabase Auth no sustituyen `DATABASE_URL`.
 
 ## Pruebas y límites
 
@@ -53,7 +53,7 @@ La validación previa sobre el head `c2429de6bc3c3f6535fb08c59cad2e992e18d597` s
 1. Crear un proyecto PostgreSQL **separado y vacío**, sin datos ni credenciales productivas. Confirmar organización/costo antes de crear recursos facturables. La cuenta UNNOBA tenía un único proyecto activo al inspeccionar: ese proyecto es producción y no se reutiliza.
 2. En la base aislada, aplicar una sola vez `0000_initial.sql`, `0001_intake_receipts.sql` y `0002_environment_guard.sql`, en ese orden. En una instalación existente, revisar primero el esquema y aplicar solo las pendientes. No ejecutar Drizzle migrate ciegamente: falta historial/journal de estas migraciones SQL manuales.
 3. **Solo en la base aislada**, ejecutar `UPDATE public.omnifix_environment SET kind='preview' WHERE id=true;`. La migración deja `production` por defecto; Preview rechaza esa identidad antes de crear/consultar órdenes. No cambiar este marker en una base real para habilitar pruebas.
-4. En Vercel UNNOBA, proyecto `omnifix-taller`, rama `codex/omnifix-issues-4-5`, agregar variables limitadas al entorno Preview: DATABASE_URL de la base nueva, WORKSHOP_ADMIN_USER y WORKSHOP_ADMIN_PASSWORD exclusivos de QA y APP_URL de ese Preview. No copiar las variables de producción ni publicar secretos.
+4. En Vercel UNNOBA, proyecto `omnifix-taller`, rama `codex/omnifix-issues-4-5`, agregar variables limitadas al entorno Preview: `DATABASE_URL` de la base nueva, variables públicas de Supabase Auth, `WORKSHOP_ADMIN_EMAIL` y `APP_URL` del Preview. Autorizar `/auth/callback` en Supabase. No copiar la base de producción ni publicar secretos.
 5. Volver a desplegar **Preview**, comprobar SHA exacto, login, recepción ficticia, garantía, logout/login/reload, seguimiento y PDF/QR. Verificar el registro ficticio directamente en la base aislada y su ausencia de cualquier proceso de prueba en producción sin consultar datos personales.
 6. Solicitar QA independiente con URL y SHA. Mantener PR sin merge y no promover a producción.
 

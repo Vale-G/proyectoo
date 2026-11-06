@@ -5,7 +5,7 @@
 - `/seguimiento` acepta el enlace o token privado y rechaza formatos inválidos antes de consultar PostgreSQL.
 - Seguimiento con noindex y no-referrer; no publica datos del cliente, serie, importes ni notas internas.
 - Panel y Server Actions protegidos mediante sesión firmada en cookie HttpOnly, Secure en producción y SameSite=Lax; validación adicional antes de acceder a los datos privados. Las páginas públicas sólo permiten GET/HEAD sin credenciales.
-- Sin configuración de acceso, el panel queda cerrado. Requiere `WORKSHOP_ADMIN_USER` y `WORKSHOP_ADMIN_PASSWORD` (mínimo 20 caracteres, única y generada aleatoriamente), configurados en el proveedor de hosting. Usar exclusivamente HTTPS en producción.
+- Sin configuración de acceso, el panel queda cerrado. Requiere `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `WORKSHOP_ADMIN_EMAIL`. Habilitar Google en Supabase Auth y autorizar la URL `/auth/callback` de cada entorno. Usar exclusivamente HTTPS en producción.
 - Esta primera versión tiene un único propietario. Para múltiples empleados hacen falta cuentas individuales, sesiones y roles. La sesión vence a las 8 horas, se invalida al rotar las credenciales y puede cerrarse desde el panel.
 
 ## Validación local

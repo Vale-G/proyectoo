@@ -1,8 +1,10 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { adminConfig, SESSION_COOKIE, validSession } from "./auth-credentials";
+import { createSupabaseServerClient } from "./supabase/server";
+import { configuredWorkshopAuth, isWorkshopAdminEmail } from "./workshop-auth";
 
 export async function requireWorkshopAccess() {
-  const cookieStore = await cookies();
-  if (!validSession(cookieStore.get(SESSION_COOKIE)?.value, adminConfig())) redirect("/login");
+  if (!configuredWorkshopAuth()) redirect("/login?error=configuration");
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !isWorkshopAdminEmail(user?.email)) redirect("/login");
 }

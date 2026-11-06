@@ -1,27 +1,28 @@
 import { Brand } from "@/components/brand";
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { adminConfig, configuredAdmin, SESSION_COOKIE, validSession } from "@/lib/auth-credentials";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { configuredWorkshopAuth, isWorkshopAdminEmail } from "@/lib/workshop-auth";
 
 export const metadata = { title: "Ingresar · OmniFix", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const config = adminConfig();
-  if (validSession((await cookies()).get(SESSION_COOKIE)?.value, config)) redirect("/");
+  const ready = configuredWorkshopAuth();
+  if (ready) {
+    const { data: { user } } = await (await createSupabaseServerClient()).auth.getUser();
+    if (isWorkshopAdminEmail(user?.email)) redirect("/");
+  }
   const { error } = await searchParams;
-  const ready = configuredAdmin(config);
+  const message = error === "unauthorized" ? "Esta cuenta de Google no está autorizada para administrar el taller." : error === "provider" ? "Google no pudo iniciar la sesión. Revisá la configuración del proveedor." : error === "callback" ? "No pudimos completar el acceso con Google. Volvé a intentarlo." : error === "configuration" ? "Falta completar la configuración de acceso del taller." : undefined;
   return <main className="login-page"><section className="login-card">
     <Link className="login-brand" href="/catalogo"><Brand /></Link>
     <p className="eyebrow">Gestión del taller</p><h1>Bienvenido a tu taller.</h1>
-    <p className="muted">Ingresá con el usuario y la contraseña configurados para OmniFix.</p>
-    {!ready ? <div className="login-notice" role="status"><h2>Falta activar el acceso</h2><p>El taller todavía no tiene un usuario y una contraseña configurados. Ingresar un nombre acá no crea una cuenta.</p><p>En la configuración de <strong>omnifix-taller</strong> en Vercel, agregá <code>WORKSHOP_ADMIN_USER</code> y <code>WORKSHOP_ADMIN_PASSWORD</code>. La contraseña debe tener al menos 20 caracteres. Después volvé a desplegar.</p><a className="button primary full" href="https://vercel.com/dashboard" target="_blank" rel="noreferrer">Abrir Vercel</a></div> : <form action="/auth/login" method="post" className="login-form">
-      {error && <p className="login-error" role="alert">{error === "credentials" ? "El usuario o la contraseña no coinciden. Revisalos y volvé a intentar." : "El acceso cambió. Revisá la configuración del taller."}</p>}
-      <label htmlFor="username">Usuario<input id="username" name="username" autoComplete="username" maxLength={256} required autoFocus /></label>
-      <label htmlFor="password">Contraseña<input id="password" name="password" type="password" autoComplete="current-password" maxLength={1024} required /></label>
-      <button className="button primary full" type="submit">Entrar al taller</button>
-      <p className="privacy-note">Tu sesión dura hasta 8 horas. Podés cerrarla desde el panel.</p>
+    <p className="muted">Ingresá con la cuenta de Google autorizada para OmniFix.</p>
+    {!ready ? <div className="login-notice" role="status"><h2>Falta activar el acceso con Google</h2><p>El taller todavía no tiene conectados Supabase Auth y el correo administrador.</p><p>Configurá <code>NEXT_PUBLIC_SUPABASE_URL</code>, <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> y <code>WORKSHOP_ADMIN_EMAIL</code> en el entorno correspondiente.</p></div> : <form action="/auth/google" method="post" className="login-form">
+      {message && <p className="login-error" role="alert">{message}</p>}
+      <button className="button primary full" type="submit">Continuar con Google</button>
+      <p className="privacy-note">Solo el correo autorizado puede acceder. Podés cerrar la sesión desde el panel.</p>
     </form>}
     <Link className="login-back" href="/catalogo">← Volver al catálogo</Link>
   </section></main>;

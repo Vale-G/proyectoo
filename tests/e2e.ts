@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium, expect } from '@playwright/test';
 import serverlessChromium from '@sparticuz/chromium';
@@ -8,7 +9,19 @@ import { testDatabase } from './database';
 async function main() {
   const db = await testDatabase();
   const origin = 'http://127.0.0.1:3177';
-  const server = spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3177'], { stdio:['ignore','pipe','pipe'], env:{...process.env,DATABASE_URL:db.url,VERCEL_ENV:'preview',APP_URL:origin,WORKSHOP_ADMIN_USER:'qa-owner',WORKSHOP_ADMIN_PASSWORD:'qa-test-only-long-password-12345'} });
+  const authOrigin = 'http://127.0.0.1:3180';
+  const adminEmail = 'qa-admin@example.com';
+  const authServer = createServer((request,response) => {
+    if (request.url === '/auth/v1/user') {
+      response.writeHead(request.headers.authorization === 'Bearer e2e-access-token' ? 200 : 401, {'content-type':'application/json'});
+      response.end(request.headers.authorization === 'Bearer e2e-access-token' ? JSON.stringify({id:'00000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',email:adminEmail,app_metadata:{provider:'google'},user_metadata:{},created_at:new Date(0).toISOString()}) : JSON.stringify({message:'invalid token'}));
+      return;
+    }
+    if (request.url?.startsWith('/auth/v1/logout')) { response.writeHead(204); response.end(); return; }
+    response.writeHead(404, {'content-type':'application/json'});response.end('{}');
+  });
+  await new Promise<void>((resolve,reject)=>authServer.listen(3180,'127.0.0.1',resolve).once('error',reject));
+  const server = spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3177'], { stdio:['ignore','pipe','pipe'], env:{...process.env,DATABASE_URL:db.url,VERCEL_ENV:'preview',APP_URL:origin,NEXT_PUBLIC_SUPABASE_URL:authOrigin,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_e2e',WORKSHOP_ADMIN_EMAIL:adminEmail} });
   let logs='';server.stderr.on('data',d=>logs+=d.toString());
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let debugPage: import('@playwright/test').Page | undefined;
@@ -17,9 +30,11 @@ async function main() {
     browser = await chromium.launch({ executablePath: process.env.CHROMIUM_EXECUTABLE_PATH ?? '/tmp/omnifix-chromium/chromium', args: serverlessChromium.args.filter(arg => arg !== '--single-process'), headless:true });
     const context=await browser.newContext({viewport:{width:1280,height:900}});
     const page=await context.newPage();debugPage=page;page.setDefaultTimeout(10000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-    await page.goto(origin+'/orders');await expect(page).toHaveURL(origin+'/login');
-    await page.getByLabel('Usuario',{exact:true}).fill('qa-owner');await page.getByLabel('Contraseña',{exact:true}).fill('incorrect');await page.getByRole('button',{name:'Entrar al taller'}).click();await expect(page.locator('.login-error')).toContainText('no coinciden');
-    await page.getByLabel('Usuario',{exact:true}).fill('qa-owner');await page.getByLabel('Contraseña',{exact:true}).fill('qa-test-only-long-password-12345');await page.getByRole('button',{name:'Entrar al taller'}).click();await expect(page.getByRole('heading',{name:'El taller, bajo control.'})).toBeVisible();
+    await page.goto(origin+'/orders');await expect(page).toHaveURL(/\/login$/);
+    const session={access_token:'e2e-access-token',refresh_token:'e2e-refresh-token',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,token_type:'bearer',user:{id:'00000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',email:adminEmail,app_metadata:{provider:'google'},user_metadata:{}}};
+    const authCookie='base64-'+Buffer.from(JSON.stringify(session)).toString('base64url');
+    await context.addCookies([{name:'sb-127-auth-token',value:authCookie,url:origin,sameSite:'Lax'}]);
+    await page.goto(origin);await expect(page.getByRole('heading',{name:'El taller, bajo control.'})).toBeVisible();
     await db.pg.exec("UPDATE public.omnifix_environment SET kind='production'");
     await page.goto(origin+'/orders/new');await expect(page.getByRole('heading',{name:'No pudimos completar la operación.'})).toBeVisible();await expect(page.getByRole('button',{name:'Guardar recepción'})).toHaveCount(0);
     await db.pg.exec("UPDATE public.omnifix_environment SET kind='preview'");
@@ -42,10 +57,10 @@ async function main() {
     const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'PDF de presupuesto',exact:true}).click();const download=await downloadPromise;assert.match(download.suggestedFilename(),/^OmniFix-.*-quote.pdf$/);await download.saveAs('tmp/e2e/desktop-downloaded-quote.pdf');
     await page.screenshot({path:'tmp/e2e/order-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});const mobileDownloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'PDF de ingreso + QR',exact:true}).click();const mobileDownload=await mobileDownloadPromise;await mobileDownload.saveAs('tmp/e2e/mobile-downloaded-intake.pdf');await page.goto(origin+'/orders/new');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);await page.screenshot({path:'tmp/e2e/intake-mobile.png',fullPage:true});
     await page.goto(origin+'/orders');await page.getByRole('link',{name:'En garantía',exact:true}).click();await expect(page.locator('tbody .status')).toHaveText('En garantía');
-    await page.locator('.mobile-nav').getByRole('button',{name:'Salir'}).click();await expect(page).toHaveURL(origin+'/login');await page.goto(orderUrl);await expect(page).toHaveURL(origin+'/login');
-    await page.getByLabel('Usuario',{exact:true}).fill('qa-owner');await page.getByLabel('Contraseña',{exact:true}).fill('qa-test-only-long-password-12345');await page.getByRole('button',{name:'Entrar al taller'}).click();await page.goto(orderUrl);await expect(page.locator('.order-header .status')).toHaveText('En garantía');await page.reload();await expect(page.locator('.order-header .status')).toHaveText('En garantía');await expect(page.getByLabel('Diagnóstico privado',{exact:true})).toHaveValue('PRIVATE-DIAGNOSIS-E2E');
+    await page.locator('.mobile-nav').getByRole('button',{name:'Salir'}).click();await expect(page).toHaveURL(/\/login$/);await page.goto(orderUrl);await expect(page).toHaveURL(/\/login$/);
+    await context.addCookies([{name:'sb-127-auth-token',value:authCookie,url:origin,sameSite:'Lax'}]);await page.goto(orderUrl);await expect(page.locator('.order-header .status')).toHaveText('En garantía');await page.reload();await expect(page.locator('.order-header .status')).toHaveText('En garantía');await expect(page.getByLabel('Diagnóstico privado',{exact:true})).toHaveValue('PRIVATE-DIAGNOSIS-E2E');
     assert.deepEqual(errors,[]);console.log('E2E PASS: real browser + isolated PostgreSQL; reception, validation, warranty persistence, public privacy/mobile, private photos/PDF, token rotation, filters and logout.');
   } catch(error) { console.error('E2E original error:',error);console.error(logs.slice(-3000));try{if(debugPage&&!debugPage.isClosed()){await mkdir('tmp/e2e',{recursive:true});await debugPage.screenshot({path:'tmp/e2e/failure.png',fullPage:true});console.error('URL',debugPage.url(),(await debugPage.locator('body').innerText()).slice(-5000));}}catch{}throw error; }
-  finally { await browser?.close();server.kill();await db.close(); }
+  finally { await browser?.close();server.kill();authServer.close();await db.close(); }
 }
 main().catch(error=>{console.error(error);process.exitCode=1});
