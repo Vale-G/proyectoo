@@ -7,7 +7,8 @@ Aplicada mediante Supabase la migración `omnifix_workshop_initial`: contenido d
 Configurar en Vercel (no compartir valores en chats ni commits):
 
 - DATABASE_URL: cadena **Transaction pooler** de Connect en Supabase, con contraseña codificada en URL. Postgres.js usa prepare:false para ese modo.
-- WORKSHOP_ADMIN_USER: usuario elegido por el dueño.
-- WORKSHOP_ADMIN_PASSWORD: contraseña única de al menos 20 caracteres.
+- NEXT_PUBLIC_SUPABASE_URL: URL pública del proyecto Supabase usado para Auth.
+- NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: clave publicable del mismo proyecto (nunca service role).
+- WORKSHOP_ADMIN_EMAIL: correo exacto de Google autorizado para administrar el taller.
 
 Volver a desplegar después de configurar variables. Hasta entonces `/login` muestra qué credenciales faltan. Una vez activado el acceso, si falta DATABASE_URL, el propietario ve una página de configuración en lugar de un error. No se ha probado una orden completa a través de la aplicación ni concurrencia real. El despliegue inicial conserva la protección de acceso de Vercel. La cuenta nueva no tiene una conexión GitHub disponible (git_namespaces devolvió una lista vacía). En Vercel, conectar GitHub y luego Settings → Git → Connect Git Repository → Vale-G/proyectoo; usar main como rama de producción cuando este cambio esté fusionado. Se publicaron las fuentes directamente mientras se habilita esa conexión.

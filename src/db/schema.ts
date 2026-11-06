@@ -1,4 +1,5 @@
-import { pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import type { Consent, IntakeData } from "@/lib/intake";
+import { pgEnum, pgTable, text, timestamp, uuid, varchar, jsonb, integer } from "drizzle-orm/pg-core";
 
 export const repairStatus = pgEnum("repair_status", [
   "received",
@@ -53,6 +54,23 @@ export const repairOrders = pgTable("repair_orders", {
   reportedIssue: text("reported_issue").notNull(),
   intakeCondition: text("intake_condition"),
   accessories: text("accessories"),
+  intakeData: jsonb("intake_data").$type<IntakeData>(),
+  consent: jsonb("consent").$type<Consent>(),
+  initialStatus: repairStatus("initial_status"),
+  initialEstimateCents: text("initial_estimate_cents"),
+  initialDepositCents: text("initial_deposit_cents"),
+  revision: integer("revision").notNull().default(0),
+  publicSummary: text("public_summary"),
+  partsCents: text("parts_cents"),
+  partsDescription: text("parts_description"),
+  laborDescription: text("labor_description"),
+  laborCents: text("labor_cents"),
+  paidCents: text("paid_cents"),
+  approvalReference: text("approval_reference"),
+  warrantyUntil: timestamp("warranty_until", { withTimezone: true }),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  deliveredTo: varchar("delivered_to", { length: 160 }),
+  deliveryAccessories: text("delivery_accessories"),
   diagnosis: text("diagnosis"),
   proposedSolution: text("proposed_solution"),
   estimateCents: text("estimate_cents"),
@@ -72,3 +90,12 @@ export const repairOrderEvents = pgTable("repair_order_events", {
 });
 
 export type RepairStatus = (typeof repairStatus.enumValues)[number];
+
+export const repairPhotos = pgTable("repair_photos", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id").notNull().references(() => repairOrders.id, { onDelete: "cascade" }),
+  mimeType: varchar("mime_type", { length: 32 }).notNull(),
+  content: text("content").notNull(),
+  description: varchar("description", { length: 300 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});

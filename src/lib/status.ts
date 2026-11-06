@@ -15,7 +15,7 @@ export const statusLabels: Record<RepairStatus, string> = {
 };
 
 const transitions: Record<RepairStatus, RepairStatus[]> = {
-  received: ["diagnosing", "awaiting_approval", "awaiting_part", "not_repaired"],
+  received: ["diagnosing", "awaiting_approval", "awaiting_part", "under_warranty", "not_repaired"],
   diagnosing: ["awaiting_approval", "awaiting_part", "repairing", "not_repaired"],
   awaiting_approval: ["awaiting_deposit", "awaiting_part", "repairing", "not_repaired"],
   awaiting_deposit: ["awaiting_part", "repairing", "not_repaired"],

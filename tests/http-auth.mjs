@@ -1,68 +1,82 @@
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 
-async function runServer(configured, port) {
-  const origin = `http://127.0.0.1:${port}`;
-  const child = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', String(port)], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, DATABASE_URL: '', WORKSHOP_ADMIN_USER: configured ? 'test-owner' : '', WORKSHOP_ADMIN_PASSWORD: configured ? 'test-only-long-password-123' : '' },
-  });
-  try {
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Server startup timed out')), 10000);
-      child.stdout.on('data', data => { if (data.toString().includes('Ready')) { clearTimeout(timeout); resolve(); } });
-      child.once('exit', code => { clearTimeout(timeout); reject(new Error(`Server exited: ${code}`)); });
-    });
-    const get = (path, cookie) => fetch(origin + path, { redirect: 'manual', headers: cookie ? { cookie } : {} });
-    const post = (path, body, requestOrigin = origin, cookie) => fetch(origin + path, { method: 'POST', redirect: 'manual', headers: { origin: requestOrigin, ...(cookie ? { cookie } : {}) }, body });
-    for (const path of ['/', '/orders', '/orders/new', '/configuracion']) {
-      const response = await get(path);
-      assert.equal(response.status, 307, path);
-      assert.equal(new URL(response.headers.get('location'), origin).pathname, '/login');
-      assert.equal(response.headers.get('www-authenticate'), null);
-    }
-    for (const path of ['/catalogo', '/seguimiento', '/login']) assert.equal((await get(path)).status, 200, path);
-    const page = await (await get('/login')).text();
-    const form = (password = 'test-only-long-password-123') => new URLSearchParams({ username: 'test-owner', password });
-    assert.equal((await post('/auth/login', form(), 'https://other.example')).status, 403);
-    assert.equal((await post('/catalogo', form())).status, 401);
-    if (!configured) {
-      assert.match(page, /Falta activar el acceso/);
-      assert.doesNotMatch(page, /name="password"/);
-      const response = await post('/auth/login', form());
-      assert.equal(response.status, 303);
-      assert.match(response.headers.get('location'), /error=configuration/);
-      console.log('PASS: missing setup produces a clear page without a browser password challenge');
-      return;
-    }
-    assert.match(page, /name="password"/);
-    const wrong = await post('/auth/login', form('wrong'));
-    assert.equal(wrong.status, 303);
-    assert.match(wrong.headers.get('location'), /error=credentials/);
-    assert.equal(wrong.headers.get('set-cookie'), null);
-    const response = await post('/auth/login', form());
-    assert.equal(response.status, 303);
-    assert.equal(response.headers.get("location"), "/");
-    const setCookie = response.headers.get('set-cookie');
-    assert.match(setCookie, /HttpOnly/i);
-    assert.match(setCookie, /Secure/i);
-    assert.match(setCookie, /SameSite=lax/i);
-    const cookie = setCookie.split(';')[0];
-    assert.equal((await get('/orders/new', cookie)).status, 200);
-    const dashboard = await get('/', cookie);
-    assert.equal(dashboard.status, 307);
-    assert.equal(new URL(dashboard.headers.get('location'), origin).pathname, '/configuracion');
-    const setup = await get('/configuracion', cookie);
-    assert.equal(setup.status, 200);
-    assert.match(await setup.text(), /Tu acceso ya funciona/);
-    const logout = await post('/auth/logout', form(), origin, cookie);
-    assert.equal(logout.status, 303);
-    assert.match(logout.headers.get('set-cookie'), /Max-Age=0/i);
-    assert.equal((await get('/orders/new')).status, 307);
-    console.log('PASS: login, wrong credentials, CSRF, signed session, missing database and logout');
-  } finally {
-    child.kill();
-  }
+async function startNext(port, env = {}) {
+  const child = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', String(port)], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, DATABASE_URL: '', ...env } });
+  await new Promise((resolve, reject) => { const timeout = setTimeout(() => reject(new Error('Server startup timed out')), 10000); child.stdout.on('data', data => { if (data.toString().includes('Ready')) { clearTimeout(timeout); resolve(); } }); child.once('exit', code => { clearTimeout(timeout); reject(new Error(`Server exited: ${code}`)); }); });
+  return child;
 }
-await runServer(false, 3131);
-await runServer(true, 3132);
+
+const publicOrigin = 'https://omnifix-preview.example';
+const adminEmail = 'admin@example.com';
+const usedCodes = new Set();
+let expectedChallenge = '';
+const logoutRequests = [];
+const authServer = createServer(async (request, response) => {
+  if (request.url?.startsWith('/auth/v1/token')) {
+    let body = ''; for await (const chunk of request) body += chunk;
+    const contentType = request.headers['content-type'] ?? '';
+    const params = contentType.includes('application/json') ? JSON.parse(body) : Object.fromEntries(new URLSearchParams(body));
+    const code = params.auth_code;
+    const challenge = typeof params.code_verifier === 'string' ? createHash('sha256').update(params.code_verifier).digest('base64url') : '';
+    if (!code || usedCodes.has(code) || challenge !== expectedChallenge) { response.writeHead(400, {'content-type':'application/json'}); response.end(JSON.stringify({error:'invalid_grant'})); return; }
+    usedCodes.add(code);
+    const access_token = code === 'other-account' ? 'other-token' : 'admin-token';
+    response.writeHead(200, {'content-type':'application/json'}); response.end(JSON.stringify({access_token,refresh_token:'refresh-token',expires_in:3600,token_type:'bearer',user:{id:'1',email:code === 'other-account' ? 'other@example.com' : adminEmail}})); return;
+  }
+  if (request.url === '/auth/v1/user') {
+    const email = request.headers.authorization === 'Bearer other-token' ? 'other@example.com' : adminEmail;
+    response.writeHead(200, {'content-type':'application/json'}); response.end(JSON.stringify({id:'1',email,email_confirmed_at:'2026-11-06T00:00:00Z',identities:[{provider:'google'}],app_metadata:{providers:['google']},user_metadata:{}})); return;
+  }
+  if (request.url?.startsWith('/auth/v1/logout')) { logoutRequests.push(request.url); response.writeHead(204); response.end(); return; }
+  response.writeHead(404, {'content-type':'application/json'}); response.end('{}');
+});
+await new Promise((resolve,reject)=>authServer.listen(3130,'127.0.0.1',resolve).once('error',reject));
+
+const unconfigured = await startNext(3131, { NEXT_PUBLIC_SUPABASE_URL: '', NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: '', WORKSHOP_ADMIN_EMAIL: '', APP_URL: 'http://127.0.0.1:3131' });
+try {
+  const origin = 'http://127.0.0.1:3131';
+  const get = path => fetch(origin + path, { redirect: 'manual' });
+  const post = (path, requestOrigin = origin) => fetch(origin + path, { method: 'POST', redirect: 'manual', headers: { origin: requestOrigin } });
+  for (const path of ['/', '/orders', '/orders/new', '/configuracion']) assert.equal((await get(path)).status, 307, path);
+  assert.match(await (await get('/login')).text(), /Falta activar el acceso con Google/);
+  assert.equal((await post('/auth/google', 'https://other.example')).status, 403);
+  assert.match((await post('/auth/google')).headers.get('location'), /error=configuration/);
+  assert.match((await get('/auth/callback?code=x')).headers.get('location'), /error=configuration/);
+} finally { unconfigured.kill(); }
+
+const configured = await startNext(3132, { NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:3130', NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', WORKSHOP_ADMIN_EMAIL: adminEmail, APP_URL: publicOrigin });
+try {
+  const origin = 'http://127.0.0.1:3132';
+  const login = await fetch(origin + '/auth/google', { method:'POST', redirect:'manual', headers:{origin} });
+  assert.equal(login.status, 303);
+  const authorize = new URL(login.headers.get('location'));
+  assert.equal(authorize.origin, 'http://127.0.0.1:3130');
+  assert.equal(authorize.searchParams.get('provider'), 'google');
+  assert.equal(authorize.searchParams.get('redirect_to'), publicOrigin + '/auth/callback');
+  expectedChallenge = authorize.searchParams.get('code_challenge'); assert.ok(expectedChallenge);
+  const verifierCookie = login.headers.get('set-cookie').split(';')[0];
+  assert.match(login.headers.get('set-cookie'), /HttpOnly/i);
+  assert.match(login.headers.get('set-cookie'), /Secure/i);
+  const callback = code => fetch(origin + `/auth/callback?code=${code}`, { redirect:'manual', headers:{cookie:verifierCookie} });
+  const missingVerifier = await fetch(origin + '/auth/callback?code=missing-verifier', { redirect:'manual' });
+  assert.match(missingVerifier.headers.get('location'), /error=callback/);
+  const [cookieName, cookieValue] = verifierCookie.split('=');
+  const tamperedCookie = `${cookieName}=${cookieValue.slice(0, -2)}${cookieValue.endsWith('A') ? 'B' : 'A'}`;
+  const tamperedVerifier = await fetch(origin + '/auth/callback?code=tampered-verifier', { redirect:'manual', headers:{cookie:tamperedCookie} });
+  assert.match(tamperedVerifier.headers.get('location'), /error=callback/);
+  const success = await callback('good-code');
+  assert.equal(success.status, 303); assert.equal(success.headers.get('location'), publicOrigin + '/');
+  assert.match(success.headers.get('set-cookie'), /HttpOnly/i);
+  assert.match(success.headers.get('set-cookie'), /Secure/i);
+  assert.match(success.headers.get('set-cookie'), /Max-Age=28800/i);
+  assert.equal(success.headers.get('cache-control'), 'private, no-store');
+  const replay = await callback('good-code');
+  assert.match(replay.headers.get('location'), /error=callback/);
+  const denied = await callback('other-account');
+  assert.match(denied.headers.get('location'), /error=unauthorized/);
+  assert.ok(logoutRequests.some(url => new URL(url, 'http://auth.local').searchParams.get('scope') === 'local'));
+  console.log('PASS: Google PKCE initiation, canonical callback, secure cookie, exchange, replay rejection and unauthorized account');
+} finally { configured.kill(); authServer.close(); }

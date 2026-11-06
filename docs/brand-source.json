@@ -1,0 +1,19 @@
+{
+  "source": "public/brand/omnifix-original.jpg",
+  "sha256": "4ced290723e5f6ba2c3c1d4049ddedd3752830f63348177227185bef55303c57",
+  "method": "Most frequent exact RGB pixel within each recorded color-range mask (original JPEG; no recoloring).",
+  "masks": {
+    "background": "r<20,g<25,b<30",
+    "cyan": "r<30,g>180,b>210",
+    "blue": "r<30,70<g<160,b>200",
+    "surface": "20<r<40,25<g<45,30<b<60",
+    "silver": "200<r,g,b<245,channel spread<12"
+  },
+  "colors": {
+    "background": "#090a0e",
+    "cyan": "#16baf7",
+    "blue": "#0085f4",
+    "surface": "#1a1f25",
+    "silver": "#d3d6dd"
+  }
+}
