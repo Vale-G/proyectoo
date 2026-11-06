@@ -2,7 +2,7 @@ import { Brand } from "@/components/brand";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { configuredWorkshopAuth, isWorkshopAdminEmail } from "@/lib/workshop-auth";
+import { configuredWorkshopAuth, isAuthorizedWorkshopUser } from "@/lib/workshop-auth";
 
 export const metadata = { title: "Ingresar · OmniFix", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const ready = configuredWorkshopAuth();
   if (ready) {
     const { data: { user } } = await (await createSupabaseServerClient()).auth.getUser();
-    if (isWorkshopAdminEmail(user?.email)) redirect("/");
+    if (isAuthorizedWorkshopUser(user)) redirect("/");
   }
   const { error } = await searchParams;
   const message = error === "unauthorized" ? "Esta cuenta de Google no está autorizada para administrar el taller." : error === "provider" ? "Google no pudo iniciar la sesión. Revisá la configuración del proveedor." : error === "callback" ? "No pudimos completar el acceso con Google. Volvé a intentarlo." : error === "configuration" ? "Falta completar la configuración de acceso del taller." : undefined;

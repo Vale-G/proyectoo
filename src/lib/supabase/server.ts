@@ -7,6 +7,7 @@ export async function createSupabaseServerClient() {
   if (!configuredWorkshopAuth(config)) throw new Error("La autenticación del taller no está configurada.");
   const cookieStore = await cookies();
   return createServerClient(config.supabaseUrl!, config.supabasePublishableKey!, {
+    cookieOptions: { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 8 * 60 * 60 },
     cookies: {
       getAll: () => cookieStore.getAll(),
       setAll(cookiesToSet) {

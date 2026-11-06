@@ -4,13 +4,13 @@
 - `/catalogo` muestra servicios y redes sin ciudades ni precios inventados.
 - `/seguimiento` acepta el enlace o token privado y rechaza formatos inválidos antes de consultar PostgreSQL.
 - Seguimiento con noindex y no-referrer; no publica datos del cliente, serie, importes ni notas internas.
-- Panel y Server Actions protegidos mediante sesión firmada en cookie HttpOnly, Secure en producción y SameSite=Lax; validación adicional antes de acceder a los datos privados. Las páginas públicas sólo permiten GET/HEAD sin credenciales.
+- Panel y Server Actions protegidos mediante Supabase Auth en cookie HttpOnly, Secure en producción y SameSite=Lax; se exige el correo confirmado y una identidad Google vinculada antes de acceder a datos privados. Las páginas públicas sólo permiten GET/HEAD sin credenciales.
 - Sin configuración de acceso, el panel queda cerrado. Requiere `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `WORKSHOP_ADMIN_EMAIL`. Habilitar Google en Supabase Auth y autorizar la URL `/auth/callback` de cada entorno. Usar exclusivamente HTTPS en producción.
-- Esta primera versión tiene un único propietario. Para múltiples empleados hacen falta cuentas individuales, sesiones y roles. La sesión vence a las 8 horas, se invalida al rotar las credenciales y puede cerrarse desde el panel.
+- Esta primera versión tiene un único propietario. Para múltiples empleados hacen falta cuentas individuales y roles. La cookie se limita a 8 horas y la sesión puede cerrarse desde el panel o revocarse desde Supabase Auth.
 
 ## Validación local
 
-`npm run lint`, `npm run build` y `node --test tests/auth.test.mjs` aprobados. Verificación HTTP del build: catálogo y entrada de seguimiento 200; panel y creación sin sesión redirigen a `/login`; POST público sin credenciales 401; token inválido 404; creación con sesión válida 200. El flujo HTTP adicional verifica login correcto/incorrecto, CSRF, cookie, configuración faltante y logout. Si falta DATABASE_URL, el propietario ve `/configuracion`.
+`npm run verify` cubre lint, tipos, unitarias, integración, build y navegador real. La autenticación se prueba con un servidor Supabase aislado: panel cerrado sin sesión, identidad Google confirmada autorizada, CSRF, cookie, configuración faltante y logout. El flujo OAuth real se valida únicamente en Preview, nunca con credenciales productivas dentro de CI.
 
 Se creó el esquema inicial en el proyecto Supabase de UNNOBA zgihtbiyhhvmxjfzdxjg, con RLS y sin acceso para anon/authenticated. Aún falta configurar DATABASE_URL y validar el flujo de aplicación contra esa base. Se inició un despliegue desde archivos en Vercel omnifix-taller; no fusionado.
 

@@ -19,3 +19,9 @@ export function configuredWorkshopAuth(config = workshopAuthConfig()) {
 export function isWorkshopAdminEmail(email: string | null | undefined, config = workshopAuthConfig()) {
   return configuredWorkshopAuth(config) && email?.trim().toLowerCase() === config.adminEmail;
 }
+
+type AuthUser = { email?: string | null; email_confirmed_at?: string | null; identities?: Array<{ provider?: string | null }> | null };
+
+export function isAuthorizedWorkshopUser(user: AuthUser | null | undefined, config = workshopAuthConfig()) {
+  return Boolean(user?.email_confirmed_at && user.identities?.some(identity => identity.provider === "google") && isWorkshopAdminEmail(user.email, config));
+}

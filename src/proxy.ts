@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
-import { configuredWorkshopAuth, isWorkshopAdminEmail, workshopAuthConfig } from "./lib/workshop-auth";
+import { configuredWorkshopAuth, isAuthorizedWorkshopUser, workshopAuthConfig } from "./lib/workshop-auth";
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -12,6 +12,7 @@ export async function proxy(request: NextRequest) {
   if (configuredWorkshopAuth(authConfig)) {
     let response = NextResponse.next({ request });
     const supabase = createServerClient(authConfig.supabaseUrl!, authConfig.supabasePublishableKey!, {
+      cookieOptions: { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 8 * 60 * 60 },
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll(cookiesToSet) {
@@ -22,7 +23,7 @@ export async function proxy(request: NextRequest) {
       },
     });
     const { data: { user }, error } = await supabase.auth.getUser();
-    if (!error && isWorkshopAdminEmail(user?.email, authConfig)) return response;
+    if (!error && isAuthorizedWorkshopUser(user, authConfig)) return response;
   }
   if (["GET", "HEAD"].includes(request.method)) return NextResponse.redirect(new URL("/login", `${request.nextUrl.protocol}//${request.headers.get("host") ?? request.nextUrl.host}`));
   return NextResponse.json({ error: "La sesión venció. Volvé a ingresar al taller." }, { status: 401, headers: { "Cache-Control": "no-store" } });

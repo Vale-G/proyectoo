@@ -14,7 +14,7 @@ async function main() {
   const authServer = createServer((request,response) => {
     if (request.url === '/auth/v1/user') {
       response.writeHead(request.headers.authorization === 'Bearer e2e-access-token' ? 200 : 401, {'content-type':'application/json'});
-      response.end(request.headers.authorization === 'Bearer e2e-access-token' ? JSON.stringify({id:'00000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',email:adminEmail,app_metadata:{provider:'google'},user_metadata:{},created_at:new Date(0).toISOString()}) : JSON.stringify({message:'invalid token'}));
+      response.end(request.headers.authorization === 'Bearer e2e-access-token' ? JSON.stringify({id:'00000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',email:adminEmail,email_confirmed_at:new Date(0).toISOString(),identities:[{provider:'google'}],app_metadata:{provider:'google',providers:['google']},user_metadata:{},created_at:new Date(0).toISOString()}) : JSON.stringify({message:'invalid token'}));
       return;
     }
     if (request.url?.startsWith('/auth/v1/logout')) { response.writeHead(204); response.end(); return; }
