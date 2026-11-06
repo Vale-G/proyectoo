@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 
 async function startNext(port, env = {}) {
@@ -11,12 +12,16 @@ async function startNext(port, env = {}) {
 const publicOrigin = 'https://omnifix-preview.example';
 const adminEmail = 'admin@example.com';
 const usedCodes = new Set();
+let expectedChallenge = '';
+const logoutRequests = [];
 const authServer = createServer(async (request, response) => {
   if (request.url?.startsWith('/auth/v1/token')) {
     let body = ''; for await (const chunk of request) body += chunk;
     const contentType = request.headers['content-type'] ?? '';
-    const code = contentType.includes('application/json') ? JSON.parse(body).auth_code : new URLSearchParams(body).get('auth_code');
-    if (!code || usedCodes.has(code)) { response.writeHead(400, {'content-type':'application/json'}); response.end(JSON.stringify({error:'invalid_grant'})); return; }
+    const params = contentType.includes('application/json') ? JSON.parse(body) : Object.fromEntries(new URLSearchParams(body));
+    const code = params.auth_code;
+    const challenge = typeof params.code_verifier === 'string' ? createHash('sha256').update(params.code_verifier).digest('base64url') : '';
+    if (!code || usedCodes.has(code) || challenge !== expectedChallenge) { response.writeHead(400, {'content-type':'application/json'}); response.end(JSON.stringify({error:'invalid_grant'})); return; }
     usedCodes.add(code);
     const access_token = code === 'other-account' ? 'other-token' : 'admin-token';
     response.writeHead(200, {'content-type':'application/json'}); response.end(JSON.stringify({access_token,refresh_token:'refresh-token',expires_in:3600,token_type:'bearer',user:{id:'1',email:code === 'other-account' ? 'other@example.com' : adminEmail}})); return;
@@ -25,7 +30,7 @@ const authServer = createServer(async (request, response) => {
     const email = request.headers.authorization === 'Bearer other-token' ? 'other@example.com' : adminEmail;
     response.writeHead(200, {'content-type':'application/json'}); response.end(JSON.stringify({id:'1',email,email_confirmed_at:'2026-11-06T00:00:00Z',identities:[{provider:'google'}],app_metadata:{providers:['google']},user_metadata:{}})); return;
   }
-  if (request.url?.startsWith('/auth/v1/logout')) { response.writeHead(204); response.end(); return; }
+  if (request.url?.startsWith('/auth/v1/logout')) { logoutRequests.push(request.url); response.writeHead(204); response.end(); return; }
   response.writeHead(404, {'content-type':'application/json'}); response.end('{}');
 });
 await new Promise((resolve,reject)=>authServer.listen(3130,'127.0.0.1',resolve).once('error',reject));
@@ -51,16 +56,27 @@ try {
   assert.equal(authorize.origin, 'http://127.0.0.1:3130');
   assert.equal(authorize.searchParams.get('provider'), 'google');
   assert.equal(authorize.searchParams.get('redirect_to'), publicOrigin + '/auth/callback');
-  assert.ok(authorize.searchParams.get('code_challenge'));
+  expectedChallenge = authorize.searchParams.get('code_challenge'); assert.ok(expectedChallenge);
   const verifierCookie = login.headers.get('set-cookie').split(';')[0];
   assert.match(login.headers.get('set-cookie'), /HttpOnly/i);
   assert.match(login.headers.get('set-cookie'), /Secure/i);
   const callback = code => fetch(origin + `/auth/callback?code=${code}`, { redirect:'manual', headers:{cookie:verifierCookie} });
+  const missingVerifier = await fetch(origin + '/auth/callback?code=missing-verifier', { redirect:'manual' });
+  assert.match(missingVerifier.headers.get('location'), /error=callback/);
+  const [cookieName, cookieValue] = verifierCookie.split('=');
+  const tamperedCookie = `${cookieName}=${cookieValue.slice(0, -2)}${cookieValue.endsWith('A') ? 'B' : 'A'}`;
+  const tamperedVerifier = await fetch(origin + '/auth/callback?code=tampered-verifier', { redirect:'manual', headers:{cookie:tamperedCookie} });
+  assert.match(tamperedVerifier.headers.get('location'), /error=callback/);
   const success = await callback('good-code');
   assert.equal(success.status, 303); assert.equal(success.headers.get('location'), publicOrigin + '/');
+  assert.match(success.headers.get('set-cookie'), /HttpOnly/i);
+  assert.match(success.headers.get('set-cookie'), /Secure/i);
+  assert.match(success.headers.get('set-cookie'), /Max-Age=28800/i);
+  assert.equal(success.headers.get('cache-control'), 'private, no-store');
   const replay = await callback('good-code');
   assert.match(replay.headers.get('location'), /error=callback/);
   const denied = await callback('other-account');
   assert.match(denied.headers.get('location'), /error=unauthorized/);
+  assert.ok(logoutRequests.some(url => new URL(url, 'http://auth.local').searchParams.get('scope') === 'local'));
   console.log('PASS: Google PKCE initiation, canonical callback, secure cookie, exchange, replay rejection and unauthorized account');
 } finally { configured.kill(); authServer.close(); }

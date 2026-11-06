@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   if (!isSameOriginRequest(request)) return NextResponse.json({ error: "Solicitud inválida." }, { status: 403 });
-  if (configuredWorkshopAuth()) await (await createSupabaseServerClient()).auth.signOut();
+  if (configuredWorkshopAuth()) await (await createSupabaseServerClient()).auth.signOut({ scope: "local" });
   const response = NextResponse.redirect(new URL("/login", await publicOrigin()), 303);
   response.headers.set("Cache-Control", "no-store");
   return response;

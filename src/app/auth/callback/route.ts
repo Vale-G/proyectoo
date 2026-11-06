@@ -5,16 +5,21 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   const origin = await publicOrigin();
-  if (!configuredWorkshopAuth()) return NextResponse.redirect(new URL("/login?error=configuration", origin), 303);
+  const redirect = (path: string) => {
+    const response = NextResponse.redirect(new URL(path, origin), 303);
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
+  };
+  if (!configuredWorkshopAuth()) return redirect("/login?error=configuration");
   const code = request.nextUrl.searchParams.get("code");
-  if (!code) return NextResponse.redirect(new URL("/login?error=callback", origin), 303);
+  if (!code) return redirect("/login?error=callback");
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) return NextResponse.redirect(new URL("/login?error=callback", origin), 303);
+  if (error) return redirect("/login?error=callback");
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !isAuthorizedWorkshopUser(user)) {
-    await supabase.auth.signOut();
-    return NextResponse.redirect(new URL("/login?error=unauthorized", origin), 303);
+    await supabase.auth.signOut({ scope: "local" });
+    return redirect("/login?error=unauthorized");
   }
-  return NextResponse.redirect(new URL("/", origin), 303);
+  return redirect("/");
 }

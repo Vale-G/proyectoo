@@ -12,7 +12,13 @@ export async function createSupabaseServerClient() {
       getAll: () => cookieStore.getAll(),
       setAll(cookiesToSet) {
         try {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, {
+            ...options,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: options.maxAge === 0 ? 0 : 8 * 60 * 60,
+          }));
         } catch {
           // Los Server Components no pueden escribir cookies. El proxy refresca la sesión.
         }
