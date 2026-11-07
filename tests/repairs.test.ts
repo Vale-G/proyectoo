@@ -127,7 +127,10 @@ test('PostgreSQL integration using production postgres.js driver, no external da
         for(const page of parsed.getPages()) {assert.ok(Math.abs(page.getWidth()-595.28)<1);assert.ok(Math.abs(page.getHeight()-841.89)<1);}
         const text=execFileSync('pdftotext',[`tmp/pdfs/${kind}.pdf`,'-'],{encoding:'utf8'});
         for(const secret of ['PRIVATE-IMEI','PRIVATE-DIAGNOSIS','PRIVATE-APPROVAL','PRIVATE-PHOTO','PRIVATE-LINE','1234567']) assert.equal(text.includes(secret),false,secret);
-        if(kind==='intake'){assert.match(text,/45\.000,50/);assert.equal(text.includes('99.000'),false);}else assert.match(text,/99\.000/);assert.equal(/12\.345,67|3\.456,78/.test(text),false);assert.match(text,/NO AUTORIZADO/);assert.match(text,/omnifix-2026-10-30-draft-1/);
+        if(kind==='intake'){
+          assert.match(text,/ORDEN DE REPARACION/);assert.match(text,/COMPROBANTE DE RECEPCION/);assert.match(text,/NO VALIDO COMO FACTURA/);assert.match(text,/SEGUIMIENTO DE LA REPARACION/);
+          assert.match(text,/45\.000,50/);assert.equal(text.includes('99.000'),false);assert.equal(parsed.getPageCount(),2);
+        }else assert.match(text,/99\.000/);assert.equal(/12\.345,67|3\.456,78/.test(text),false);assert.match(text,/NO AUTORIZADO/);assert.match(text,/omnifix-2026-10-30-draft-1/);
         if(kind==='quote') {assert.match(text,/PRESUPUESTO/);assert.match(text,/No acredita aceptaci/);assert.match(text,/Total de presupuesto/);}
         execFileSync('pdftoppm',['-scale-to','1600','-png',`tmp/pdfs/${kind}.pdf`,`tmp/pdfs/${kind}`]);
         let decoded=false;
