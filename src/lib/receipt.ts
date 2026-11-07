@@ -122,14 +122,13 @@ export async function buildReceipt(order: RepairOrder, base: string, kind: Recei
     page.drawText("El acceso es privado: no lo compartas fuera del titular.",{x:margin+120,y:y-56,font:regular,size:8.5,color:ink});
     const shortUrlLines=lines(url,7.5); let urlY=y-77;
     for(const line of shortUrlLines.slice(0,3)){page.drawText(line,{x:margin+120,y:urlY,font:regular,size:7.5,color:ink});urlY-=10;}
+    page.drawText("La recepcion y el diagnostico no autorizan reparaciones ni borrado de datos.",{x:margin+120,y:y-96,font:regular,size:7.2,color:ink});
+    page.drawText("Todo trabajo o importe adicional requiere aprobacion previa del cliente.",{x:margin+120,y:y-107,font:regular,size:7.2,color:ink});
     y-=124;
     page.drawLine({start:{x:margin,y},end:{x:width/2-18,y},color:ink,thickness:.5});
     page.drawLine({start:{x:width/2+18,y},end:{x:width-margin,y},color:ink,thickness:.5});
     page.drawText("Firma y aclaracion del cliente",{x:margin,y:y-14,font:regular,size:8.5,color:ink});
     page.drawText("Firma y aclaracion de OmniFix",{x:width/2+18,y:y-14,font:regular,size:8.5,color:ink});
-    page=doc.addPage([width,height]); header();
-    paragraph(`CONDICIONES DE RECEPCION - ORDEN #${order.orderNumber}`,14);
-    section("Informacion importante", "Este comprobante acredita la recepcion del equipo y habilita su retiro por la persona legitimada. No es factura ni acredita por si solo la autorizacion de una reparacion o de trabajos adicionales.");
   } else {
     paragraph(`${kind === 'quote' ? 'PRESUPUESTO' : 'COMPROBANTE DE ENTREGA'} - ORDEN #${order.orderNumber}`, 15);
     for (const [title,value] of receiptSections(order,kind)) section(title,value);
@@ -139,12 +138,12 @@ export async function buildReceipt(order: RepairOrder, base: string, kind: Recei
     page.drawText("Compartilos solo con el titular del equipo.",{x:margin+130,y:y-66,font:regular,size:9,color:ink});y-=130;
     paragraph(url,8);
   }
-  if (order.consent) {
-    section("Aceptación registrada", `${order.consent.acceptedName} · ${formatDate(new Date(order.consent.acceptedAt),true)} · ${order.consent.method === 'typed_name' ? 'Nombre y aceptación expresos' : 'Firma en copia de papel registrada'} · Versión ${order.consent.version}`);
-    section("Borrado / restauración (autorización separada)", order.consent.eraseAuthorized ? `Autorizado expresamente por ${order.consent.acceptedName} el ${formatDate(new Date(order.consent.eraseAcceptedAt!),true)}.` : "NO AUTORIZADO. La aceptación de recepción y diagnóstico no autoriza borrar o restaurar datos.");
-    section("Condiciones aceptadas", order.consent.text);
-  } else section("Condiciones", "Orden anterior sin consentimiento registrado. Este comprobante no acredita una aceptación retroactiva.");
   if(kind !== 'intake') {
+    if (order.consent) {
+      section("Aceptación registrada", `${order.consent.acceptedName} · ${formatDate(new Date(order.consent.acceptedAt),true)} · ${order.consent.method === 'typed_name' ? 'Nombre y aceptación expresos' : 'Firma en copia de papel registrada'} · Versión ${order.consent.version}`);
+      section("Borrado / restauración (autorización separada)", order.consent.eraseAuthorized ? `Autorizado expresamente por ${order.consent.acceptedName} el ${formatDate(new Date(order.consent.eraseAcceptedAt!),true)}.` : "NO AUTORIZADO. La aceptación de recepción y diagnóstico no autoriza borrar o restaurar datos.");
+      section("Condiciones aceptadas", order.consent.text);
+    } else section("Condiciones", "Orden anterior sin consentimiento registrado. Este comprobante no acredita una aceptación retroactiva.");
     room(90);y-=25;page.drawLine({start:{x:margin,y},end:{x:width/2-20,y},color:ink,thickness:.5});page.drawLine({start:{x:width/2+20,y},end:{x:width-margin,y},color:ink,thickness:.5});y-=16;
     page.drawText("Firma / aclaración del cliente",{x:margin,y,font:regular,size:9,color:ink});page.drawText("Firma / aclaración de OmniFix",{x:width/2+20,y,font:regular,size:9,color:ink});
   }
