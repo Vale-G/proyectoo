@@ -76,20 +76,78 @@ export async function buildReceipt(order: RepairOrder, base: string, kind: Recei
   }
   function paragraph(text: string, size = 10) { for (const line of lines(text,size)) { room(15); if (line) page.drawText(line,{x:margin,y,font:regular,size,color:ink}); y-=14; } y-=6; }
   function section(title: string, value: string) { room(42); page.drawText(safe(title),{x:margin,y,font:bold,size:10,color:ink});y-=17;paragraph(value); }
-  header(); paragraph(`${kind === 'quote' ? 'PRESUPUESTO' : kind === 'intake' ? 'COMPROBANTE DE INGRESO' : 'COMPROBANTE DE ENTREGA'} - ORDEN #${order.orderNumber}`, 15);
-  for (const [title,value] of receiptSections(order,kind)) section(title,value);
-  room(150); page.drawImage(qr,{x:margin,y:y-115,width:115,height:115});
-  page.drawText("Segui el estado desde tu casa",{x:margin+130,y:y-25,font:bold,size:12,color:ink});
-  page.drawText("El QR y el enlace son privados.",{x:margin+130,y:y-48,font:regular,size:10,color:ink});
-  page.drawText("Compartilos solo con el titular del equipo.",{x:margin+130,y:y-66,font:regular,size:9,color:ink});y-=130;
-  paragraph(url,8);
+  function boxed(title: string, value: string, x: number, top: number, boxWidth: number, boxHeight: number, size = 9) {
+    page.drawRectangle({x,y:top-boxHeight,width:boxWidth,height:boxHeight,borderColor:rgb(.72,.77,.82),borderWidth:.8});
+    page.drawText(safe(title).toUpperCase(),{x:x+9,y:top-16,font:bold,size:7.5,color:accent});
+    const maxWidth=boxWidth-18; let lineY=top-32;
+    for(const paragraphText of safe(value).split('\n')) {
+      let line='';
+      for(const word of paragraphText.split(/\s+/)) {
+        const candidate=`${line} ${word}`.trim();
+        if(regular.widthOfTextAtSize(candidate,size)<=maxWidth) line=candidate;
+        else { if(lineY>top-boxHeight+8&&line) page.drawText(line,{x:x+9,y:lineY,font:regular,size,color:ink}); lineY-=12; line=word; }
+      }
+      if(lineY>top-boxHeight+8&&line) page.drawText(line,{x:x+9,y:lineY,font:regular,size,color:ink});
+      lineY-=12;
+    }
+  }
+  header();
+  if(kind === 'intake') {
+    page.drawText(`ORDEN DE REPARACION #${order.orderNumber}`,{x:margin,y,font:bold,size:15,color:ink});
+    page.drawText(`Ingreso: ${formatDate(order.createdAt,true)}`,{x:width-margin-155,y:y+1,font:regular,size:9,color:ink});
+    page.drawText("COMPROBANTE DE RECEPCION - NO VALIDO COMO FACTURA",{x:margin,y:y-14,font:regular,size:7.5,color:accent});
+    y-=34;
+    boxed("Cliente",order.customerName,margin,y,usable*.62,52);
+    boxed("Contacto",order.customerPhone,margin+usable*.62+8,y,usable*.38-8,52);
+    y-=60;
+    boxed("Equipo",`${order.deviceCategory} - ${order.deviceBrand ?? ''} ${order.deviceModel}`.trim(),margin,y,usable*.62,52);
+    boxed("Encendido",order.intakeData ? powerLabel[order.intakeData.power] : "No comprobado",margin+usable*.62+8,y,usable*.38-8,52);
+    y-=60;
+    boxed("Falla declarada",order.reportedIssue,margin,y,usable,66);
+    y-=74;
+    boxed("Estado fisico al recibir",order.intakeCondition || "Sin observaciones registradas",margin,y,usable,66);
+    y-=74;
+    boxed("Accesorios recibidos",order.accessories || "Ninguno registrado",margin,y,usable*.58,58);
+    const simSd=order.intakeData ? `SIM: ${order.intakeData.sim === 'received' ? 'recibida' : 'no recibida'} / SD: ${order.intakeData.sd === 'received' ? 'recibida' : 'no recibida'}` : "Sin registro";
+    boxed("SIM / tarjeta SD",simSd,margin+usable*.58+8,y,usable*.42-8,58);
+    y-=66;
+    const intakeAmount=order.initialStatus ? formatMoney(order.initialEstimateCents) : "Sin presupuesto inicial";
+    const intakeDeposit=order.initialStatus ? formatMoney(order.initialDepositCents) : "Sin registro";
+    boxed("Presupuesto estimado",intakeAmount,margin,y,usable*.5-4,50,10);
+    boxed("Sena recibida",intakeDeposit,margin+usable*.5+4,y,usable*.5-4,50,10);
+    y-=64;
+    page.drawImage(qr,{x:margin,y:y-104,width:104,height:104});
+    page.drawText("SEGUIMIENTO DE LA REPARACION",{x:margin+120,y:y-20,font:bold,size:11,color:ink});
+    page.drawText("Escanea el QR para consultar el estado actualizado.",{x:margin+120,y:y-40,font:regular,size:9,color:ink});
+    page.drawText("El acceso es privado: no lo compartas fuera del titular.",{x:margin+120,y:y-56,font:regular,size:8.5,color:ink});
+    const shortUrlLines=lines(url,7.5); let urlY=y-77;
+    for(const line of shortUrlLines.slice(0,3)){page.drawText(line,{x:margin+120,y:urlY,font:regular,size:7.5,color:ink});urlY-=10;}
+    y-=124;
+    page.drawLine({start:{x:margin,y},end:{x:width/2-18,y},color:ink,thickness:.5});
+    page.drawLine({start:{x:width/2+18,y},end:{x:width-margin,y},color:ink,thickness:.5});
+    page.drawText("Firma y aclaracion del cliente",{x:margin,y:y-14,font:regular,size:8.5,color:ink});
+    page.drawText("Firma y aclaracion de OmniFix",{x:width/2+18,y:y-14,font:regular,size:8.5,color:ink});
+    page=doc.addPage([width,height]); header();
+    paragraph(`CONDICIONES DE RECEPCION - ORDEN #${order.orderNumber}`,14);
+    section("Informacion importante", "Este comprobante acredita la recepcion del equipo y habilita su retiro por la persona legitimada. No es factura ni acredita por si solo la autorizacion de una reparacion o de trabajos adicionales.");
+  } else {
+    paragraph(`${kind === 'quote' ? 'PRESUPUESTO' : 'COMPROBANTE DE ENTREGA'} - ORDEN #${order.orderNumber}`, 15);
+    for (const [title,value] of receiptSections(order,kind)) section(title,value);
+    room(150); page.drawImage(qr,{x:margin,y:y-115,width:115,height:115});
+    page.drawText("Segui el estado desde tu casa",{x:margin+130,y:y-25,font:bold,size:12,color:ink});
+    page.drawText("El QR y el enlace son privados.",{x:margin+130,y:y-48,font:regular,size:10,color:ink});
+    page.drawText("Compartilos solo con el titular del equipo.",{x:margin+130,y:y-66,font:regular,size:9,color:ink});y-=130;
+    paragraph(url,8);
+  }
   if (order.consent) {
     section("Aceptación registrada", `${order.consent.acceptedName} · ${formatDate(new Date(order.consent.acceptedAt),true)} · ${order.consent.method === 'typed_name' ? 'Nombre y aceptación expresos' : 'Firma en copia de papel registrada'} · Versión ${order.consent.version}`);
     section("Borrado / restauración (autorización separada)", order.consent.eraseAuthorized ? `Autorizado expresamente por ${order.consent.acceptedName} el ${formatDate(new Date(order.consent.eraseAcceptedAt!),true)}.` : "NO AUTORIZADO. La aceptación de recepción y diagnóstico no autoriza borrar o restaurar datos.");
     section("Condiciones aceptadas", order.consent.text);
   } else section("Condiciones", "Orden anterior sin consentimiento registrado. Este comprobante no acredita una aceptación retroactiva.");
-  room(90);y-=25;page.drawLine({start:{x:margin,y},end:{x:width/2-20,y},color:ink,thickness:.5});page.drawLine({start:{x:width/2+20,y},end:{x:width-margin,y},color:ink,thickness:.5});y-=16;
-  page.drawText("Firma / aclaración del cliente",{x:margin,y,font:regular,size:9,color:ink});page.drawText("Firma / aclaración de OmniFix",{x:width/2+20,y,font:regular,size:9,color:ink});
+  if(kind !== 'intake') {
+    room(90);y-=25;page.drawLine({start:{x:margin,y},end:{x:width/2-20,y},color:ink,thickness:.5});page.drawLine({start:{x:width/2+20,y},end:{x:width-margin,y},color:ink,thickness:.5});y-=16;
+    page.drawText("Firma / aclaración del cliente",{x:margin,y,font:regular,size:9,color:ink});page.drawText("Firma / aclaración de OmniFix",{x:width/2+20,y,font:regular,size:9,color:ink});
+  }
   doc.getPages().forEach((p,i) => p.drawText(`OmniFix - Orden #${order.orderNumber} - ${i+1}/${doc.getPageCount()}`,{x:margin,y:26,font:regular,size:8,color:ink}));
   return { bytes: await doc.save(), url };
 }
