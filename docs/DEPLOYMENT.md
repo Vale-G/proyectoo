@@ -14,3 +14,7 @@ Configurar en Vercel (no compartir valores en chats ni commits):
 - WORKSHOP_ADMIN_EMAIL: correo exacto de Google autorizado para administrar el taller.
 
 Volver a desplegar después de configurar variables. Hasta entonces `/login` muestra qué credenciales faltan. Una vez activado el acceso, si falta DATABASE_URL, el propietario ve una página de configuración en lugar de un error. No se ha probado una orden completa a través de la aplicación ni concurrencia real. El despliegue inicial conserva la protección de acceso de Vercel. La cuenta nueva no tiene una conexión GitHub disponible (git_namespaces devolvió una lista vacía). En Vercel, conectar GitHub y luego Settings → Git → Connect Git Repository → Vale-G/proyectoo; usar main como rama de producción cuando este cambio esté fusionado. Se publicaron las fuentes directamente mientras se habilita esa conexión.
+
+### Aislamiento del Preview
+
+La rama de QA debe usar exclusivamente el proyecto Supabase `omnifix-preview-qa` (ref. `dobkufhkywvhvobnbiti`). No reutilizar las variables públicas de Turnly ni las credenciales de la base productiva. Después de modificar variables en Vercel es obligatorio crear un nuevo deployment: los deployments existentes conservan los valores anteriores.
