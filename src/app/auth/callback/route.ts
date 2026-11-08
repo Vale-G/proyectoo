@@ -1,10 +1,11 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { configuredWorkshopAuth, isAuthorizedWorkshopUser } from "@/lib/workshop-auth";
-import { publicOrigin } from "@/lib/public-origin";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
-  const origin = await publicOrigin();
+  // Keep the authenticated session on the same Preview/production host that
+  // received the callback instead of jumping to APP_URL.
+  const origin = request.nextUrl.origin;
   const redirect = (path: string) => {
     const response = NextResponse.redirect(new URL(path, origin), 303);
     response.headers.set("Cache-Control", "private, no-store");
