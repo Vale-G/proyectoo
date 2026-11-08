@@ -39,6 +39,7 @@ export async function testDatabase() {
     await pg.exec('GRANT USAGE ON SCHEMA public TO anon, authenticated; GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;');
     await pg.exec(await readFile('drizzle/0001_intake_receipts.sql','utf8'));
     await pg.exec(await readFile('drizzle/0002_environment_guard.sql','utf8'));
+    await pg.exec(await readFile('drizzle/0003_workshop_operations.sql','utf8'));
     await pg.exec("UPDATE public.omnifix_environment SET kind='preview' WHERE id=true");
   } catch(error) {await close();throw error;}
   async function close(){

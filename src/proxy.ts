@@ -6,6 +6,7 @@ export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const readOnlyPublic = path === "/brand/omnifix-original.jpg" || path.startsWith("/brand/fonts/") || path === "/login" || path === "/catalogo" || path === "/seguimiento" || path.startsWith("/seguimiento/");
   if (readOnlyPublic && ["GET", "HEAD"].includes(request.method)) return NextResponse.next();
+  if (path.startsWith("/seguimiento/") && request.method === "POST") return NextResponse.next();
   if (path === "/auth/callback" && request.method === "GET") return NextResponse.next();
   if ((path === "/auth/google" || path === "/auth/logout") && request.method === "POST") return NextResponse.next();
   const authConfig = workshopAuthConfig();

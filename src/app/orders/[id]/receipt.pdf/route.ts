@@ -1,5 +1,5 @@
 import { getOrder } from "@/lib/orders";
-import { buildReceipt } from "@/lib/receipt";
+import { buildIntakeLayout, buildReceipt, type IntakeLayout } from "@/lib/receipt";
 import { publicOrigin } from "@/lib/public-origin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +10,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!["intake", "delivery", "quote"].includes(requestedKind)) return new Response("Tipo de comprobante inválido.", { status: 400 });
   const kind = requestedKind as "intake" | "delivery" | "quote";
   if (kind === "delivery" && !order.deliveredAt) return new Response("La orden no fue entregada.", { status: 409 });
-  const { bytes } = await buildReceipt(order, await publicOrigin(), kind);
-  return new Response(new Uint8Array(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="OmniFix-${order.orderNumber}-${kind}.pdf"`, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff" } });
+  const requestedLayout = new URL(request.url).searchParams.get("layout") ?? "a4";
+  if (!["a4","a5","double","label"].includes(requestedLayout)) return new Response("Formato de impresión inválido.",{status:400});
+  const layout=requestedLayout as IntakeLayout;
+  const { bytes } = kind === "intake" ? await buildIntakeLayout(order,await publicOrigin(),layout) : await buildReceipt(order, await publicOrigin(), kind);
+  return new Response(new Uint8Array(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="OmniFix-${order.orderNumber}-${kind}${kind === 'intake' ? `-${layout}` : ''}.pdf"`, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff" } });
 }

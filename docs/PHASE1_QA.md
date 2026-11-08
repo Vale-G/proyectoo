@@ -17,6 +17,10 @@ Rama aislada: `codex/omnifix-issues-4-5`, base `7bb96b7`. No migrar, fusionar ni
 
 ## Migración (no aplicada a producción)
 
+`0003_workshop_operations.sql` agrega las operaciones comerciales nuevas. En Preview aislado se verificaron columnas, restricciones, RLS y revocación de acceso público. La suite prueba aprobación única bajo revisión optimista, privacidad del presupuesto fuera del estado de aprobación, movimientos de pago, repuestos y reingresos vinculados sin sobrescribir la orden original.
+
+También se incorporaron A4, A5, doble copia A5 sobre A4, etiqueta con QR, clientes, estadísticas, CSV, mensajes preparados para WhatsApp y manifiesto instalable. Automatización de WhatsApp, Mercado Pago y usuarios adicionales requieren credenciales o decisiones externas y no se simulan como integraciones completas.
+
 Instalación nueva: aplicar `drizzle/0000_initial.sql`, luego `0001_intake_receipts.sql` en una transacción de mantenimiento revisada. Instalación actual con las cinco tablas existentes: aplicar sólo `0001_intake_receipts.sql` una vez. Hacer backup y revisar el esquema antes. La migración agrega campos y tabla de fotos; no reemplaza registros ni inventa consentimientos/snapshots antiguos.
 
 La segunda migración habilita RLS y revoca anon/authenticated en las seis tablas. La aplicación actual es monousuario y accede por conexión PostgreSQL privada del servidor; no abrir políticas públicas para que funcione. Las fotos también son privadas. Verificar privilegios del rol de conexión usado por la aplicación antes de migrar.

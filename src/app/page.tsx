@@ -6,7 +6,7 @@ import { statusLabels } from "@/lib/status";
 
 export const dynamic = "force-dynamic";
 
-const countable = ["diagnosing", "awaiting_approval", "awaiting_part", "repairing", "ready_for_pickup"] as const;
+const countable = ["received", "diagnosing", "awaiting_approval", "awaiting_part", "repairing", "ready_for_pickup"] as const;
 
 export default async function Dashboard() {
   const orders = await listOrders();
@@ -14,6 +14,7 @@ export default async function Dashboard() {
   return <AppFrame>
     <header className="page-header"><div><p className="eyebrow">Panel de OmniFix</p><h1>El taller, bajo control.</h1><p>Revisá prioridades, avances y equipos próximos a entregar.</p></div><Link className="button primary" href="/orders/new">+ Nueva orden</Link></header>
     <section className="metrics">
+      <Metric href="/orders?status=received" count={counts.received} label="Recién ingresados" tone="blue" />
       <Metric href="/orders?status=diagnosing" count={counts.diagnosing} label="En diagnóstico" tone="amber" />
       <Metric href="/orders?status=awaiting_approval" count={counts.awaiting_approval} label="Esperando aprobación" tone="violet" />
       <Metric href="/orders?status=awaiting_part" count={counts.awaiting_part} label="Esperando repuesto" tone="orange" />
@@ -29,4 +30,4 @@ export default async function Dashboard() {
 
 function Metric({ href, count, label, tone }: { href: string; count: number; label: string; tone: string }) { return <Link className={`metric ${tone}`} href={href}><b>{count}</b><span><i />{label}</span></Link>; }
 
-export function AppFrame({ children }: { children: React.ReactNode }) { return <div className="app-shell"><aside className="sidebar"><Link className="brand" href="/"><Brand /></Link><nav><Link href="/">▦ <span>Inicio</span></Link><Link href="/orders">▤ <span>Órdenes</span></Link><Link className="nav-new" href="/orders/new">＋ <span>Nueva orden</span></Link><span className="nav-disabled">◉ <span>Clientes</span></span><span className="nav-disabled">▧ <span>Garantías</span></span></nav><div className="sidebar-footer"><span className="avatar">OF</span><div><strong>OmniFix</strong><small>Propietario</small></div></div><form action="/auth/logout" method="post" className="sidebar-logout"><button type="submit">Cerrar sesión</button></form></aside><div className="mobile-nav"><Link href="/">OmniFix</Link><Link href="/orders">Órdenes</Link><Link href="/orders/new">+ Ingreso</Link><form action="/auth/logout" method="post"><button>Salir</button></form></div><main className="content">{children}</main></div>; }
+export function AppFrame({ children }: { children: React.ReactNode }) { return <div className="app-shell"><aside className="sidebar"><Link className="brand" href="/"><Brand /></Link><nav><Link href="/">▦ <span>Inicio</span></Link><Link href="/orders">▤ <span>Órdenes</span></Link><Link className="nav-new" href="/orders/new">＋ <span>Nueva orden</span></Link><Link href="/clientes">● <span>Clientes</span></Link><Link href="/estadisticas">◉ <span>Estadísticas</span></Link><a href="/orders/export.csv">⇩ <span>Exportar CSV</span></a><Link href="/orders?status=under_warranty">▧ <span>Garantías</span></Link></nav><div className="sidebar-footer"><span className="avatar">OF</span><div><strong>OmniFix</strong><small>Propietario</small></div></div><form action="/auth/logout" method="post" className="sidebar-logout"><button type="submit">Cerrar sesión</button></form></aside><div className="mobile-nav"><Link href="/">OmniFix</Link><Link href="/orders">Órdenes</Link><Link href="/estadisticas">Métricas</Link><Link href="/orders/new">+ Ingreso</Link><form action="/auth/logout" method="post"><button>Salir</button></form></div><main className="content">{children}</main></div>; }

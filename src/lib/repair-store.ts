@@ -1,7 +1,7 @@
 import { and, desc, eq, getTableColumns, ilike, or, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@/db/client";
-import { customers, devices, repairOrderEvents, repairOrders, repairPhotos, workshops, type RepairStatus } from "@/db/schema";
+import { customers, devices, repairOrderEvents, repairOrders, repairParts, repairPayments, repairPhotos, workshops, type RepairStatus } from "@/db/schema";
 import { formatMoney } from "./format";
 import { intakeOrderSchema, SERVICE_TERMS, TERMS_VERSION, UserInputError, type IntakeOrder } from "./intake";
 import { canTransition } from "./status";
@@ -25,23 +25,29 @@ export function repairStore(database: Database) {
     }).from(repairOrders).innerJoin(devices, eq(repairOrders.deviceId, devices.id)).innerJoin(customers, eq(devices.customerId, customers.id))
       .where(and(eq(repairOrders.id, id), eq(repairOrders.workshopId, workshopId))).limit(1);
     if (!order) return null;
-    const [events, photos] = await Promise.all([
+    const [events, photos, payments, parts] = await Promise.all([
       database.select().from(repairOrderEvents).where(eq(repairOrderEvents.orderId, id)).orderBy(desc(repairOrderEvents.createdAt)),
       database.select({ id: repairPhotos.id, description: repairPhotos.description, createdAt: repairPhotos.createdAt }).from(repairPhotos).where(eq(repairPhotos.orderId, id)).orderBy(desc(repairPhotos.createdAt)),
+      database.select().from(repairPayments).where(eq(repairPayments.orderId,id)).orderBy(desc(repairPayments.createdAt)),
+      database.select().from(repairParts).where(eq(repairParts.orderId,id)).orderBy(desc(repairParts.createdAt)),
     ]);
-    return { ...order, events, photos };
+    return { ...order, events, photos, payments, parts };
   }
   async function listOrders(workshopId: string, query = "", status?: RepairStatus) {
     const conditions = [eq(repairOrders.workshopId, workshopId)];
     if (status) conditions.push(eq(repairOrders.status, status));
     if (query) { const term = `%${query.slice(0, 150)}%`; conditions.push(or(ilike(repairOrders.orderNumber, term), ilike(customers.fullName, term), ilike(customers.phone, term), ilike(devices.model, term))!); }
     return database.select({ id: repairOrders.id, orderNumber: repairOrders.orderNumber, status: repairOrders.status, reportedIssue: repairOrders.reportedIssue, estimatedCompletion: repairOrders.estimatedCompletion,
-      estimateCents: repairOrders.estimateCents, depositCents: repairOrders.depositCents, createdAt: repairOrders.createdAt, customerName: customers.fullName, customerPhone: customers.phone, deviceCategory: devices.category, deviceBrand: devices.brand, deviceModel: devices.model,
+      estimateCents: repairOrders.estimateCents, depositCents: repairOrders.depositCents, initialDepositCents: repairOrders.initialDepositCents, paidCents: repairOrders.paidCents, createdAt: repairOrders.createdAt, customerName: customers.fullName, customerPhone: customers.phone, deviceCategory: devices.category, deviceBrand: devices.brand, deviceModel: devices.model,
     }).from(repairOrders).innerJoin(devices, eq(repairOrders.deviceId, devices.id)).innerJoin(customers, eq(devices.customerId, customers.id)).where(and(...conditions)).orderBy(desc(repairOrders.createdAt));
+  }
+  async function listCustomers(workshopId:string){
+    return database.select({id:customers.id,fullName:customers.fullName,phone:customers.phone,email:customers.email,orders:sql<number>`count(${repairOrders.id})::int`,lastVisit:sql<Date>`max(${repairOrders.createdAt})`}).from(customers).innerJoin(devices,eq(devices.customerId,customers.id)).innerJoin(repairOrders,eq(repairOrders.deviceId,devices.id)).where(eq(customers.workshopId,workshopId)).groupBy(customers.id).orderBy(desc(sql`max(${repairOrders.createdAt})`));
   }
   async function getPublicOrder(token: string) {
     if (!/^[a-f0-9]{64}$/.test(token)) return null;
-    const [order] = await database.select({ orderNumber: repairOrders.orderNumber, status: repairOrders.status, publicSummary: repairOrders.publicSummary, estimatedCompletion: repairOrders.estimatedCompletion,
+    const [order] = await database.select({ orderNumber: repairOrders.orderNumber, status: repairOrders.status, publicSummary: repairOrders.publicSummary, estimatedCompletion: repairOrders.estimatedCompletion, revision: repairOrders.revision,
+      proposedSolution: sql<string | null>`case when ${repairOrders.status} = 'awaiting_approval' then ${repairOrders.proposedSolution} else null end`, estimateCents: sql<string | null>`case when ${repairOrders.status} = 'awaiting_approval' then ${repairOrders.estimateCents} else null end`, quoteDecision: sql<string | null>`case when ${repairOrders.status} = 'awaiting_approval' then ${repairOrders.quoteDecision} else null end`, quoteDecidedAt: sql<Date | null>`case when ${repairOrders.status} = 'awaiting_approval' then ${repairOrders.quoteDecidedAt} else null end`, quoteDecidedBy: sql<string | null>`case when ${repairOrders.status} = 'awaiting_approval' then ${repairOrders.quoteDecidedBy} else null end`,
       createdAt: repairOrders.createdAt, publicName: workshops.publicName, whatsapp: workshops.whatsapp, deviceCategory: devices.category, deviceBrand: devices.brand, deviceModel: devices.model,
     }).from(repairOrders).innerJoin(workshops, eq(repairOrders.workshopId, workshops.id)).innerJoin(devices, eq(repairOrders.deviceId, devices.id)).where(eq(repairOrders.publicToken, token)).limit(1);
     return order ?? null;
@@ -92,6 +98,51 @@ export function repairStore(database: Database) {
       return changed;
     });
   }
+  async function respondToQuote(token:string,expectedRevision:number,decision:"approved"|"rejected",name:string){
+    if(!/^[a-f0-9]{64}$/.test(token)) throw new UserInputError("Enlace inválido.");
+    return database.transaction(async tx=>{
+      const [current]=await tx.select().from(repairOrders).where(eq(repairOrders.publicToken,token)).for("update");
+      if(!current) throw new UserInputError("Orden no encontrada.");
+      if(current.revision!==expectedRevision) throw conflict();
+      if(current.status!=="awaiting_approval") throw new UserInputError("Esta orden no está esperando una aprobación.");
+      if(current.quoteDecision) throw new UserInputError("El presupuesto ya tiene una respuesta registrada.");
+      if(!current.estimateCents || !current.proposedSolution) throw new UserInputError("El taller todavía no publicó un presupuesto completo.");
+      const now=new Date();const [changed]=await tx.update(repairOrders).set({quoteDecision:decision,quoteDecidedAt:now,quoteDecidedBy:name,revision:sql`${repairOrders.revision} + 1`,updatedAt:now}).where(and(eq(repairOrders.id,current.id),eq(repairOrders.revision,expectedRevision))).returning();
+      if(!changed) throw conflict();
+      await tx.insert(repairOrderEvents).values({orderId:current.id,fromStatus:current.status,toStatus:current.status,note:`Presupuesto ${decision === "approved" ? "APROBADO" : "RECHAZADO"} por ${name} desde el enlace privado.`});
+      return changed;
+    });
+  }
+  async function addPayment(workshopId:string,id:string,expectedRevision:number,input:{amountCents:string;method:string;note:string}){
+    return database.transaction(async tx=>{
+      const [current]=await tx.select().from(repairOrders).where(and(eq(repairOrders.id,id),eq(repairOrders.workshopId,workshopId))).for("update");
+      if(!current) throw new UserInputError("Orden no encontrada.");if(current.revision!==expectedRevision) throw conflict();
+      const [payment]=await tx.insert(repairPayments).values({orderId:id,...input}).returning();
+      const total=String(BigInt(current.paidCents ?? "0")+BigInt(input.amountCents));
+      const [changed]=await tx.update(repairOrders).set({paidCents:total,revision:sql`${repairOrders.revision} + 1`,updatedAt:new Date()}).where(and(eq(repairOrders.id,id),eq(repairOrders.revision,expectedRevision))).returning();
+      if(!changed) throw conflict();
+      await tx.insert(repairOrderEvents).values({orderId:id,fromStatus:current.status,toStatus:current.status,note:`Pago registrado: ${formatMoney(input.amountCents)} · ${input.method}${input.note ? ` · ${input.note}` : ""}.`});return payment;
+    });
+  }
+  async function addPart(workshopId:string,id:string,expectedRevision:number,input:{description:string;supplier:string;quality:string;costCents:string|null;priceCents:string|null;warrantyUntil:Date|null}){
+    return database.transaction(async tx=>{
+      const [current]=await tx.select().from(repairOrders).where(and(eq(repairOrders.id,id),eq(repairOrders.workshopId,workshopId))).for("update");
+      if(!current) throw new UserInputError("Orden no encontrada.");if(current.revision!==expectedRevision) throw conflict();
+      const [part]=await tx.insert(repairParts).values({orderId:id,...input}).returning();
+      const [changed]=await tx.update(repairOrders).set({revision:sql`${repairOrders.revision} + 1`,updatedAt:new Date()}).where(and(eq(repairOrders.id,id),eq(repairOrders.revision,expectedRevision))).returning();if(!changed) throw conflict();
+      await tx.insert(repairOrderEvents).values({orderId:id,fromStatus:current.status,toStatus:current.status,note:`Repuesto registrado: ${input.description}. Proveedor: ${input.supplier || "sin registrar"}. Calidad: ${input.quality || "sin registrar"}.`});return part;
+    });
+  }
+  async function createWarrantyReturn(workshopId:string,originId:string,expectedRevision:number,issue:string,accessories:string){
+    const origin=await getOrder(workshopId,originId);if(!origin) throw new UserInputError("Orden original no encontrada.");if(origin.revision!==expectedRevision) throw conflict();
+    if(!origin.warrantyUntil || origin.warrantyUntil.getTime()<Date.now()) throw new UserInputError("La orden no tiene una garantía comercial vigente registrada.");
+    return database.transaction(async tx=>{
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${workshopId}))`);
+      const [number]=await tx.select({last:sql<string>`coalesce(max(case when ${repairOrders.orderNumber} ~ '^[0-9]+$' then ${repairOrders.orderNumber}::numeric else 0 end),0)`}).from(repairOrders).where(eq(repairOrders.workshopId,workshopId));
+      const [created]=await tx.insert(repairOrders).values({workshopId,deviceId:origin.deviceId,orderNumber:String(BigInt(number.last)+1n).padStart(5,"0"),publicToken:randomBytes(32).toString("hex"),status:"under_warranty",initialStatus:"under_warranty",warrantyOriginId:originId,reportedIssue:issue,intakeCondition:`Reingreso vinculado a la orden #${origin.orderNumber}.`,accessories:accessories || null,publicSummary:"Recibimos el equipo para revisar la garantía."}).returning();
+      await tx.insert(repairOrderEvents).values({orderId:created.id,toStatus:"under_warranty",note:`Reingreso en garantía de la orden #${origin.orderNumber}.`});return created;
+    });
+  }
   async function addPhoto(workshopId: string, id: string, content: Buffer, mimeType: string, description: string) {
     const formats: Record<string, boolean> = { "image/jpeg": content[0] === 0xff && content[1] === 0xd8 && content[2] === 0xff, "image/png": content.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])), "image/webp": content.subarray(0,4).toString() === "RIFF" && content.subarray(8,12).toString() === "WEBP" };
     if (!content.length || content.length > 2 * 1024 * 1024 || !formats[mimeType]) throw new UserInputError("La foto debe ser JPEG, PNG o WebP y ocupar hasta 2 MB.");
@@ -109,7 +160,7 @@ export function repairStore(database: Database) {
     const [photo] = await database.select({ ...getTableColumns(repairPhotos) }).from(repairPhotos).innerJoin(repairOrders, eq(repairPhotos.orderId, repairOrders.id)).where(and(eq(repairPhotos.id, id), eq(repairPhotos.orderId, orderId), eq(repairOrders.workshopId, workshopId))).limit(1);
     return photo ?? null;
   }
-  return { ensureWorkshop, getOrder, listOrders, getPublicOrder, createOrder, changeStatus, updateTechnical, rotateToken, addPhoto, getPhoto };
+  return { ensureWorkshop, getOrder, listOrders, listCustomers, getPublicOrder, createOrder, changeStatus, updateTechnical, rotateToken, respondToQuote, addPayment, addPart, createWarrantyReturn, addPhoto, getPhoto };
 }
 export type RepairStore = ReturnType<typeof repairStore>;
 export type RepairOrder = NonNullable<Awaited<ReturnType<RepairStore["getOrder"]>>>;

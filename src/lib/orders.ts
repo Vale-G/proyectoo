@@ -20,6 +20,7 @@ export async function listOrders(query?: string, status?: RepairStatus) {
   const { store, workshop } = await privateStore();
   return store.listOrders(workshop.id, query, repairStatus.enumValues.includes(status as RepairStatus) ? status : undefined);
 }
+export async function listCustomers(){const {store,workshop}=await privateStore();return store.listCustomers(workshop.id);}
 export async function getOrder(id: string) { const { store, workshop } = await privateStore(); return store.getOrder(workshop.id, id); }
 export async function createOrder(input: IntakeOrder) { const { store, workshop } = await privateStore(); return store.createOrder(workshop.id, input); }
 export async function getPublicOrder(token: string) {

@@ -1,5 +1,5 @@
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -10,6 +10,7 @@ import { TESTS } from "./intake";
 import { trackingUrl } from "./tracking-url";
 
 export type ReceiptKind = "intake" | "delivery" | "quote";
+export type IntakeLayout = "a4" | "a5" | "double" | "label";
 const resultLabel = { passed: "Funciona", failed: "Presenta falla", not_tested: "No realizada" };
 const powerLabel = { on: "Enciende", off: "No enciende", unknown: "No comprobado" };
 const yesNo = { yes: "Sí", no: "No", unknown: "Sin determinar" };
@@ -150,3 +151,34 @@ export async function buildReceipt(order: RepairOrder, base: string, kind: Recei
   doc.getPages().forEach((p,i) => p.drawText(`OmniFix - Orden #${order.orderNumber} - ${i+1}/${doc.getPageCount()}`,{x:margin,y:26,font:regular,size:8,color:ink}));
   return { bytes: await doc.save(), url };
 }
+
+export async function buildIntakeLayout(order: RepairOrder, base: string, layout: IntakeLayout) {
+  if (layout === "a4") return buildReceipt(order, base, "intake");
+  const url = trackingUrl(order.publicToken, base);
+  if (layout === "label") {
+    const doc=await PDFDocument.create();const width=283.46,height=170.08;const page=doc.addPage([width,height]);
+    const regular=await doc.embedFont(StandardFonts.Helvetica);const bold=await doc.embedFont(StandardFonts.HelveticaBold);
+    const qr=await doc.embedPng(await QRCode.toBuffer(url,{errorCorrectionLevel:'M',margin:2,width:220}));
+    page.drawText("OmniFix",{x:14,y:143,font:bold,size:17,color:rgb(0,.52,.96)});
+    page.drawText(`ORDEN #${order.orderNumber}`,{x:14,y:119,font:bold,size:18});
+    page.drawText(safeLabel(order.customerName,34),{x:14,y:97,font:bold,size:10});
+    page.drawText(safeLabel(`${order.deviceBrand ?? ''} ${order.deviceModel}`.trim(),38),{x:14,y:79,font:regular,size:9});
+    page.drawText(safeLabel(order.accessories || "Sin accesorios",38),{x:14,y:61,font:regular,size:8});
+    page.drawText("Escanear para seguimiento",{x:14,y:19,font:regular,size:7});
+    page.drawImage(qr,{x:181,y:15,width:88,height:88});
+    page.drawRectangle({x:5,y:5,width:width-10,height:height-10,borderWidth:1,borderColor:rgb(.35,.45,.55)});
+    return {bytes:await doc.save(),url};
+  }
+  const sourceResult=await buildReceipt(order,base,"intake");const source=await PDFDocument.load(sourceResult.bytes);const doc=await PDFDocument.create();const embedded=await doc.embedPage(source.getPage(0));
+  if(layout === "a5") {
+    const width=419.53,height=595.28,page=doc.addPage([width,height]);const scale=Math.min((width-12)/embedded.width,(height-12)/embedded.height);
+    page.drawPage(embedded,{x:(width-embedded.width*scale)/2,y:(height-embedded.height*scale)/2,xScale:scale,yScale:scale});
+  } else {
+    const width=841.89,height=595.28,page=doc.addPage([width,height]);const half=width/2;const scale=Math.min((half-12)/embedded.width,(height-12)/embedded.height);
+    for(const offset of [0,half]) page.drawPage(embedded,{x:offset+(half-embedded.width*scale)/2,y:(height-embedded.height*scale)/2,xScale:scale,yScale:scale});
+    page.drawLine({start:{x:half,y:0},end:{x:half,y:height},thickness:.6,color:rgb(.55,.6,.65),dashArray:[4,4]});
+  }
+  doc.setTitle(`OmniFix - Orden #${order.orderNumber} - ${layout}`);doc.setAuthor("OmniFix");
+  return {bytes:await doc.save(),url};
+}
+function safeLabel(value:string,max:number){return value.replace(/[^\x20-\x7e\xa0-\xff]/g," ").slice(0,max);}

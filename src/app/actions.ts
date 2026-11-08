@@ -63,3 +63,16 @@ export async function uploadRepairPhoto(form: FormData): Promise<ActionResult> {
     refresh(id); return { success: "Foto guardada de forma privada con fecha y hora." };
   } catch (error) { return { error: validationMessage(error) }; }
 }
+export async function addRepairPayment(form:FormData):Promise<ActionResult>{
+  const {store,workshop}=await privateStore();
+  try{const input=identitySchema.extend({method:short(48).min(1,"Elegí el medio de pago."),note:short(300)}).parse(Object.fromEntries(form));const amountCents=moneyToCents(String(form.get("amount") ?? ""));if(!amountCents || BigInt(amountCents)<=0n) throw new UserInputError("Ingresá un importe mayor que cero.");await store.addPayment(workshop.id,input.orderId,input.revision,{amountCents,method:input.method,note:input.note});refresh(input.orderId);return {success:"Pago agregado al historial y saldo actualizado."};}catch(error){return {error:validationMessage(error)};}
+}
+export async function addRepairPart(form:FormData):Promise<ActionResult>{
+  const {store,workshop}=await privateStore();
+  try{const input=identitySchema.extend({description:short(300).min(2,"Describí el repuesto."),supplier:short(160),quality:short(120),partWarrantyUntil:z.union([z.literal(""),z.iso.date()])}).parse(Object.fromEntries(form));await store.addPart(workshop.id,input.orderId,input.revision,{description:input.description,supplier:input.supplier,quality:input.quality,costCents:moneyToCents(String(form.get("partCost") ?? "")),priceCents:moneyToCents(String(form.get("partPrice") ?? "")),warrantyUntil:input.partWarrantyUntil?new Date(`${input.partWarrantyUntil}T12:00:00Z`):null});refresh(input.orderId);return {success:"Repuesto registrado con proveedor, calidad y garantía."};}catch(error){return {error:validationMessage(error)};}
+}
+export async function createWarrantyReturn(form:FormData):Promise<ActionResult>{
+  const {store,workshop}=await privateStore();let createdId:string|undefined;
+  try{const input=identitySchema.extend({warrantyIssue:short(2000).min(5,"Describí el motivo del reingreso."),warrantyAccessories:short(1000)}).parse(Object.fromEntries(form));const created=await store.createWarrantyReturn(workshop.id,input.orderId,input.revision,input.warrantyIssue,input.warrantyAccessories);createdId=created.id;}catch(error){return {error:validationMessage(error)};}
+  refresh(createdId!);redirect(`/orders/${createdId}`);
+}

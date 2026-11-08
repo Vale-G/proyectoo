@@ -10,7 +10,7 @@ import { repairStore } from '../src/lib/repair-store';
 import { moneyToCents, validationMessage } from '../src/lib/intake';
 import { formatMoney } from '../src/lib/format';
 import { canTransition } from '../src/lib/status';
-import { buildReceipt, receiptSections } from '../src/lib/receipt';
+import { buildIntakeLayout, buildReceipt, receiptSections } from '../src/lib/receipt';
 import { trackingUrl } from '../src/lib/tracking-url';
 import { fixture } from './fixture';
 import { testDatabase } from './database';
@@ -32,9 +32,9 @@ test('PostgreSQL integration using production postgres.js driver, no external da
       await assert.rejects(assertDatabaseReady(env.database,true), /Preview bloqueado/);
       await env.pg.exec("UPDATE public.omnifix_environment SET kind='preview'");
     });
-    await t.test('migration closes all seven tables to Supabase public roles', async () => {
+    await t.test('migration closes all workshop tables to Supabase public roles', async () => {
       const result = await env.pg.query<{relname:string;relrowsecurity:boolean;anon_select:boolean;authenticated_select:boolean}>("select c.relname,c.relrowsecurity,has_table_privilege('anon',c.oid,'SELECT') as anon_select,has_table_privilege('authenticated',c.oid,'SELECT') as authenticated_select from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'");
-      assert.deepEqual(result.rows.map(row=>row.relname).sort(), ['workshops','customers','devices','repair_orders','repair_order_events','repair_photos','omnifix_environment'].sort());
+      assert.deepEqual(result.rows.map(row=>row.relname).sort(), ['workshops','customers','devices','repair_orders','repair_order_events','repair_photos','repair_payments','repair_parts','omnifix_environment'].sort());
       for(const row of result.rows){assert.equal(row.relrowsecurity,true,row.relname);assert.equal(row.anon_select,false,row.relname);assert.equal(row.authenticated_select,false,row.relname);}
     });
     await t.test('native CI uses independent PostgreSQL backends for contention', { skip: !env.native }, async () => {
@@ -79,6 +79,26 @@ test('PostgreSQL integration using production postgres.js driver, no external da
       const before = await env.pg.query('select count(*) from customers');
       await assert.rejects(store.createOrder(workshop.id,fixture({accepted:false as true})));
       assert.deepEqual(await env.pg.query('select count(*) from customers'),before);
+    });
+    await t.test('public quote decision, payment ledger and parts persist transactionally', async () => {
+      const ops=await store.createOrder(workshop.id,fixture());
+      await store.changeStatus(workshop.id,ops.id,0,'diagnosing','Diagnóstico iniciado');
+      await store.changeStatus(workshop.id,ops.id,1,'awaiting_approval','Presupuesto listo');
+      await store.updateTechnical(workshop.id,ops.id,2,{diagnosis:'Privado',proposedSolution:'Cambio de módulo completo',publicSummary:'Presupuesto disponible.',partsDescription:'Módulo',laborDescription:'Instalación',estimatedCompletion:null,approvalReference:'',partsCents:'1000000',laborCents:'500000',estimateCents:'2000000',paidCents:null,warrantyUntil:null});
+      const before=await store.getPublicOrder(ops.publicToken);assert.equal(before!.revision,3);assert.equal(before!.estimateCents,'2000000');
+      await store.respondToQuote(ops.publicToken,3,'approved','Cliente QA');
+      await assert.rejects(store.respondToQuote(ops.publicToken,3,'rejected','Otro'));
+      await store.addPayment(workshop.id,ops.id,4,{amountCents:'500000',method:'Transferencia',note:'Seña adicional'});
+      await store.addPart(workshop.id,ops.id,5,{description:'Módulo OLED',supplier:'Proveedor QA',quality:'Gold',costCents:'900000',priceCents:'1400000',warrantyUntil:new Date('2027-01-01T12:00:00Z')});
+      const fresh=await store.getOrder(workshop.id,ops.id);assert.equal(fresh!.quoteDecision,'approved');assert.equal(fresh!.quoteDecidedBy,'Cliente QA');assert.equal(fresh!.paidCents,'500000');assert.equal(fresh!.payments.length,1);assert.equal(fresh!.parts.length,1);assert.equal(fresh!.revision,6);
+      const publicOrder=JSON.stringify(await store.getPublicOrder(ops.publicToken));assert.equal(publicOrder.includes('Proveedor QA'),false);assert.equal(publicOrder.includes('900000'),false);
+    });
+    await t.test('warranty return creates a linked order without overwriting the original', async () => {
+      const origin=await store.createOrder(workshop.id,fixture());
+      await store.updateTechnical(workshop.id,origin.id,0,{diagnosis:'',proposedSolution:'',publicSummary:'',partsDescription:'',laborDescription:'',estimatedCompletion:null,approvalReference:'',partsCents:null,laborCents:null,estimateCents:null,paidCents:null,warrantyUntil:new Date('2099-01-01T12:00:00Z')});
+      const returned=await store.createWarrantyReturn(workshop.id,origin.id,1,'La pantalla presenta líneas','Funda');
+      const fresh=await store.getOrder(workshop.id,returned.id);const original=await store.getOrder(workshop.id,origin.id);
+      assert.equal(fresh!.status,'under_warranty');assert.equal(fresh!.warrantyOriginId,origin.id);assert.equal(fresh!.deviceId,origin.deviceId);assert.equal(fresh!.accessories,'Funda');assert.equal(original!.status,origin.status);assert.notEqual(fresh!.orderNumber,original!.orderNumber);
     });
     await t.test('private technical details never appear in public projection', async () => {
       await store.updateTechnical(workshop.id,order.id,2,{diagnosis:'PRIVATE-DIAGNOSIS',proposedSolution:'PRIVATE-SOLUTION',publicSummary:'Estamos revisando tu equipo.',partsCents:'1234567',laborCents:'345678',estimateCents:'9900000',paidCents:'300000',approvalReference:'PRIVATE-APPROVAL',warrantyUntil:null});
@@ -141,6 +161,15 @@ test('PostgreSQL integration using production postgres.js driver, no external da
           if(qr) {assert.equal(qr.data,trackingUrl(fresh.publicToken,'https://omnifix.example'));decoded=true;}
         }
         assert.equal(decoded,true,`QR unreadable in ${kind}`);
+      }
+    });
+    await t.test('customer print layouts create A5, double-copy A4 and private label', async () => {
+      const fresh=(await store.getOrder(workshop.id,order.id))!;
+      const expected:{[key:string]:[number,number]}={a5:[419.53,595.28],double:[841.89,595.28],label:[283.46,170.08]};
+      for(const layout of ['a5','double','label'] as const){
+        const result=await buildIntakeLayout(fresh,'https://omnifix.example',layout);const pdf=await PDFDocument.load(result.bytes);assert.equal(pdf.getPageCount(),1);
+        const [width,height]=expected[layout];assert.ok(Math.abs(pdf.getPage(0).getWidth()-width)<1);assert.ok(Math.abs(pdf.getPage(0).getHeight()-height)<1);
+        assert.equal(result.url,trackingUrl(fresh.publicToken,'https://omnifix.example'));
       }
     });
   } finally { await env.close(); }

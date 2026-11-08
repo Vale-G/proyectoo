@@ -1,0 +1,5 @@
+import { AppFrame } from "@/app/page";
+import { listCustomers } from "@/lib/orders";
+import { formatDate } from "@/lib/format";
+export const dynamic="force-dynamic";
+export default async function CustomersPage(){const customers=await listCustomers();return <AppFrame><header className="page-header"><div><p className="eyebrow">Historial comercial</p><h1>Clientes</h1><p>Contactos e historial de ingresos registrados por el taller.</p></div></header><section className="table-panel"><table><thead><tr><th>Cliente</th><th>Contacto</th><th>Órdenes</th><th>Último ingreso</th><th>Acción</th></tr></thead><tbody>{customers.map(customer=><tr key={customer.id}><td><strong>{customer.fullName}</strong></td><td><strong>{customer.phone}</strong><small>{customer.email || 'Sin correo'}</small></td><td>{customer.orders}</td><td>{formatDate(customer.lastVisit)}</td><td><a className="button secondary" href={`https://wa.me/${customer.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer">WhatsApp</a></td></tr>)}{!customers.length&&<tr><td colSpan={5} className="empty">Todavía no hay clientes registrados.</td></tr>}</tbody></table></section></AppFrame>}
