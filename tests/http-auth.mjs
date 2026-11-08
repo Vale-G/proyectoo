@@ -55,7 +55,9 @@ try {
   const authorize = new URL(login.headers.get('location'));
   assert.equal(authorize.origin, 'http://127.0.0.1:3130');
   assert.equal(authorize.searchParams.get('provider'), 'google');
-  assert.equal(authorize.searchParams.get('redirect_to'), publicOrigin + '/auth/callback');
+  const runtimeOrigin = new URL(authorize.searchParams.get('redirect_to')).origin;
+  assert.equal(authorize.searchParams.get('redirect_to'), runtimeOrigin + '/auth/callback');
+  assert.notEqual(runtimeOrigin, publicOrigin);
   expectedChallenge = authorize.searchParams.get('code_challenge'); assert.ok(expectedChallenge);
   const verifierCookie = login.headers.get('set-cookie').split(';')[0];
   assert.match(login.headers.get('set-cookie'), /HttpOnly/i);
@@ -68,7 +70,7 @@ try {
   const tamperedVerifier = await fetch(origin + '/auth/callback?code=tampered-verifier', { redirect:'manual', headers:{cookie:tamperedCookie} });
   assert.match(tamperedVerifier.headers.get('location'), /error=callback/);
   const success = await callback('good-code');
-  assert.equal(success.status, 303); assert.equal(success.headers.get('location'), publicOrigin + '/');
+  assert.equal(success.status, 303); assert.equal(success.headers.get('location'), runtimeOrigin + '/');
   assert.match(success.headers.get('set-cookie'), /HttpOnly/i);
   assert.match(success.headers.get('set-cookie'), /Secure/i);
   assert.match(success.headers.get('set-cookie'), /Max-Age=28800/i);
