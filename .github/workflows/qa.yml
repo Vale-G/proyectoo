@@ -1,0 +1,50 @@
+name: OmniFix QA
+on:
+  pull_request:
+  push:
+    branches: [main]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: qa-only-local-password
+          POSTGRES_DB: omnifix_test
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - run: npm ci --ignore-scripts
+      - run: npm run verify
+        env:
+          OMNIFIX_TEST_DATABASE_URL: postgres://postgres:qa-only-local-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/omnifix_test
+          OMNIFIX_ALLOW_TEST_DATABASE: '1'
+      - run: npm audit --omit=dev --audit-level=high
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: omnifix-qa-evidence
+          path: |
+            tmp/pdfs/
+            tmp/e2e/
+          retention-days: 7

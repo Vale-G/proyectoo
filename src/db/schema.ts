@@ -1,4 +1,5 @@
-import { pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import type { Consent, IntakeData } from "@/lib/intake";
+import { pgEnum, pgTable, text, timestamp, uuid, varchar, jsonb, integer, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const repairStatus = pgEnum("repair_status", [
   "received",
@@ -53,6 +54,27 @@ export const repairOrders = pgTable("repair_orders", {
   reportedIssue: text("reported_issue").notNull(),
   intakeCondition: text("intake_condition"),
   accessories: text("accessories"),
+  intakeData: jsonb("intake_data").$type<IntakeData>(),
+  consent: jsonb("consent").$type<Consent>(),
+  initialStatus: repairStatus("initial_status"),
+  initialEstimateCents: text("initial_estimate_cents"),
+  initialDepositCents: text("initial_deposit_cents"),
+  revision: integer("revision").notNull().default(0),
+  publicSummary: text("public_summary"),
+  partsCents: text("parts_cents"),
+  partsDescription: text("parts_description"),
+  laborDescription: text("labor_description"),
+  laborCents: text("labor_cents"),
+  paidCents: text("paid_cents"),
+  approvalReference: text("approval_reference"),
+  quoteDecision: varchar("quote_decision", { length: 16 }),
+  quoteDecidedAt: timestamp("quote_decided_at", { withTimezone: true }),
+  quoteDecidedBy: varchar("quote_decided_by", { length: 160 }),
+  warrantyOriginId: uuid("warranty_origin_id").references((): AnyPgColumn => repairOrders.id, { onDelete: "set null" }),
+  warrantyUntil: timestamp("warranty_until", { withTimezone: true }),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  deliveredTo: varchar("delivered_to", { length: 160 }),
+  deliveryAccessories: text("delivery_accessories"),
   diagnosis: text("diagnosis"),
   proposedSolution: text("proposed_solution"),
   estimateCents: text("estimate_cents"),
@@ -72,3 +94,33 @@ export const repairOrderEvents = pgTable("repair_order_events", {
 });
 
 export type RepairStatus = (typeof repairStatus.enumValues)[number];
+
+export const repairPhotos = pgTable("repair_photos", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id").notNull().references(() => repairOrders.id, { onDelete: "cascade" }),
+  mimeType: varchar("mime_type", { length: 32 }).notNull(),
+  content: text("content").notNull(),
+  description: varchar("description", { length: 300 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const repairPayments = pgTable("repair_payments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id").notNull().references(() => repairOrders.id, { onDelete: "cascade" }),
+  amountCents: text("amount_cents").notNull(),
+  method: varchar("method", { length: 48 }).notNull(),
+  note: varchar("note", { length: 300 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const repairParts = pgTable("repair_parts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id").notNull().references(() => repairOrders.id, { onDelete: "cascade" }),
+  description: varchar("description", { length: 300 }).notNull(),
+  supplier: varchar("supplier", { length: 160 }),
+  quality: varchar("quality", { length: 120 }),
+  costCents: text("cost_cents"),
+  priceCents: text("price_cents"),
+  warrantyUntil: timestamp("warranty_until", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});

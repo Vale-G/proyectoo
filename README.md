@@ -47,4 +47,4 @@ Abrí <http://localhost:3000>. El primer acceso crea automáticamente el taller 
 
 ## Acceso al taller
 
-Configurar `WORKSHOP_ADMIN_USER` y `WORKSHOP_ADMIN_PASSWORD` (clave única de al menos 20 caracteres). El panel redirige a `/login`, con formulario y sesión de 8 horas. No hay usuarios predeterminados ni registro público. Sin ellas, `/login` explica qué falta configurar; no abre diálogos del navegador. Catálogo y seguimiento permanecen públicos. Usar HTTPS en producción. Ver `docs/OMNIFIX_INTEGRATION.md` para los pendientes antes de publicar.
+Configurar `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `WORKSHOP_ADMIN_EMAIL`. El panel usa Google mediante Supabase Auth y autoriza únicamente el correo exacto configurado; no hay registro público desde la aplicación. Catálogo y seguimiento permanecen públicos. Google debe estar habilitado en Supabase y `/auth/callback` debe figurar en la lista de redirecciones permitidas. Usar HTTPS en producción. Ver `docs/OMNIFIX_INTEGRATION.md` para los pendientes antes de publicar.

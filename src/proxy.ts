@@ -1,12 +1,37 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
-import { adminConfig, SESSION_COOKIE, validSession } from "./lib/auth-credentials";
+import { configuredWorkshopAuth, isAuthorizedWorkshopUser, workshopAuthConfig } from "./lib/workshop-auth";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  const readOnlyPublic = path === "/login" || path === "/catalogo" || path === "/seguimiento" || path.startsWith("/seguimiento/");
+  const readOnlyPublic = path === "/brand/omnifix-original.jpg" || path.startsWith("/brand/fonts/") || path === "/login" || path === "/catalogo" || path === "/seguimiento" || path.startsWith("/seguimiento/");
   if (readOnlyPublic && ["GET", "HEAD"].includes(request.method)) return NextResponse.next();
-  if ((path === "/auth/login" || path === "/auth/logout") && request.method === "POST") return NextResponse.next();
-  if (validSession(request.cookies.get(SESSION_COOKIE)?.value, adminConfig())) return NextResponse.next();
+  if (path.startsWith("/seguimiento/") && request.method === "POST") return NextResponse.next();
+  if (path === "/auth/callback" && request.method === "GET") return NextResponse.next();
+  if ((path === "/auth/google" || path === "/auth/logout") && request.method === "POST") return NextResponse.next();
+  const authConfig = workshopAuthConfig();
+  if (configuredWorkshopAuth(authConfig)) {
+    let response = NextResponse.next({ request });
+    const supabase = createServerClient(authConfig.supabaseUrl!, authConfig.supabasePublishableKey!, {
+      cookieOptions: { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 8 * 60 * 60 },
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, {
+            ...options,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: options.maxAge === 0 ? 0 : 8 * 60 * 60,
+          }));
+        },
+      },
+    });
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (!error && isAuthorizedWorkshopUser(user, authConfig)) return response;
+  }
   if (["GET", "HEAD"].includes(request.method)) return NextResponse.redirect(new URL("/login", `${request.nextUrl.protocol}//${request.headers.get("host") ?? request.nextUrl.host}`));
   return NextResponse.json({ error: "La sesión venció. Volvé a ingresar al taller." }, { status: 401, headers: { "Cache-Control": "no-store" } });
 }

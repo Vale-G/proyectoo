@@ -1,9 +1,13 @@
+import { Brand } from "@/components/brand";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicOrder } from "@/lib/orders";
 import { formatDate } from "@/lib/format";
 import { statusLabels } from "@/lib/status";
 import { StatusBadge } from "@/components/status-badge";
+import { ActionForm } from "@/components/action-form";
+import { respondToPublicQuote } from "@/app/seguimiento/actions";
+import { formatMoney } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +15,7 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
   const { token } = await params;
   const order = await getPublicOrder(token);
   if (!order) notFound();
-  return <main className="tracking-page"><section className="tracking-card"><div className="tracking-brand"><span className="mark"><i /><i /><i /><b>✓</b></span><div><strong>{order.publicName === "Punto Placa" ? "OmniFix" : order.publicName}</strong><small>Servicio técnico de electrónica</small></div></div><p className="eyebrow">Seguimiento de reparación</p><h1>Orden #{order.orderNumber}</h1><p className="device-name">{order.deviceBrand} {order.deviceModel}</p><StatusBadge status={order.status} /><p className="tracking-message">{messageFor(order.status)}</p><dl><div><dt>Fecha de ingreso</dt><dd>{formatDate(order.createdAt)}</dd></div><div><dt>Entrega estimada</dt><dd>{formatDate(order.estimatedCompletion)}</dd></div></dl>{order.whatsapp && <a className="button primary full" href={`https://wa.me/${order.whatsapp.replace(/\D/g, "")}`}>Consultar por WhatsApp</a>}<p><Link href="/catalogo">Ver catálogo de OmniFix</Link></p><p className="privacy-note">Por seguridad, esta página no muestra datos personales, números de serie, fotos ni información técnica interna.</p></section></main>;
+  return <main className="tracking-page"><section className="tracking-card"><div className="tracking-brand"><Brand /></div><p className="eyebrow">Seguimiento de reparación</p><h1>Orden #{order.orderNumber}</h1><p className="device-name">{order.deviceBrand} {order.deviceModel}</p><StatusBadge status={order.status} /><p className="tracking-message">{messageFor(order.status)}</p>{order.publicSummary && <p className="public-summary">{order.publicSummary}</p>}<dl><div><dt>Fecha de ingreso</dt><dd>{formatDate(order.createdAt)}</dd></div><div><dt>Entrega estimada</dt><dd>{formatDate(order.estimatedCompletion)}</dd></div></dl>{order.status === "awaiting_approval" && order.proposedSolution && order.estimateCents && <section className="public-quote"><p className="eyebrow">Presupuesto para autorizar</p><h2>{formatMoney(order.estimateCents)}</h2><p>{order.proposedSolution}</p>{order.quoteDecision ? <p className={`quote-decision ${order.quoteDecision}`}>Respuesta registrada: <strong>{order.quoteDecision === "approved" ? "Aprobado" : "Rechazado"}</strong>{order.quoteDecidedBy ? ` por ${order.quoteDecidedBy}` : ""}.</p> : <ActionForm action={respondToPublicQuote} className="status-form"><input type="hidden" name="token" value={token}/><input type="hidden" name="revision" value={order.revision}/><label>Nombre y apellido<input name="name" minLength={2} maxLength={160} required autoComplete="name" /></label><div className="quote-buttons"><button className="button primary" name="decision" value="approved">Aprobar presupuesto</button><button className="button secondary" name="decision" value="rejected">Rechazar</button></div><p className="privacy-note">La respuesta queda registrada con fecha y hora. Solo autoriza el trabajo y el importe indicados arriba.</p></ActionForm>}</section>}{order.whatsapp && <a className="button primary full" href={`https://wa.me/${order.whatsapp.replace(/\D/g, "")}`}>Consultar por WhatsApp</a>}<p><Link href="/catalogo">Ver catálogo de OmniFix</Link></p><p className="privacy-note">Por seguridad, esta página no muestra datos personales, números de serie, fotos ni información técnica interna.</p></section></main>;
 }
 
 function messageFor(status: keyof typeof statusLabels) {

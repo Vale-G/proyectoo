@@ -1,0 +1,28 @@
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { configuredWorkshopAuth, workshopAuthConfig } from "@/lib/workshop-auth";
+
+export async function createSupabaseServerClient() {
+  const config = workshopAuthConfig();
+  if (!configuredWorkshopAuth(config)) throw new Error("La autenticación del taller no está configurada.");
+  const cookieStore = await cookies();
+  return createServerClient(config.supabaseUrl!, config.supabasePublishableKey!, {
+    cookieOptions: { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 8 * 60 * 60 },
+    cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, {
+            ...options,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: options.maxAge === 0 ? 0 : 8 * 60 * 60,
+          }));
+        } catch {
+          // Los Server Components no pueden escribir cookies. El proxy refresca la sesión.
+        }
+      },
+    },
+  });
+}
