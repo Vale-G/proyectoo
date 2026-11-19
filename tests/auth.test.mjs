@@ -4,7 +4,7 @@ import { configuredWorkshopAuth, isAuthorizedWorkshopUser, isWorkshopAdminEmail 
 const config = { supabaseUrl: 'https://example.supabase.co', supabasePublishableKey: 'sb_publishable_test', adminEmail: 'admin@example.com' };
 test('Google access requires complete configuration', () => {
   assert.equal(configuredWorkshopAuth(config), true);
-  assert.equal(configuredWorkshopAuth({ ...config, adminEmail: '' }), false);
+  assert.equal(configuredWorkshopAuth({ ...config, adminEmail: '' }), true);
   assert.equal(configuredWorkshopAuth({ ...config, supabasePublishableKey: '' }), false);
 });
 test('authorizes only the configured email', () => {
@@ -18,4 +18,9 @@ test('requires a confirmed Google identity as well as the configured email', () 
   assert.equal(isAuthorizedWorkshopUser({ ...googleUser, identities: [{ provider: 'email' }] }, config), false);
   assert.equal(isAuthorizedWorkshopUser({ ...googleUser, email_confirmed_at: null }, config), false);
   assert.equal(isAuthorizedWorkshopUser({ ...googleUser, email: 'other@example.com' }, config), false);
+});
+test('authenticated admission never grants a workshop by email', async () => {
+  const { isVerifiedWorkshopIdentity } = await import('../src/lib/workshop-auth.ts');
+  assert.equal(isVerifiedWorkshopIdentity({email:'other@example.com',email_confirmed_at:'2026-01-01',identities:[{provider:'google'}]}),true);
+  assert.equal(isVerifiedWorkshopIdentity({email:'admin@example.com',identities:[{provider:'google'}]}),false);
 });

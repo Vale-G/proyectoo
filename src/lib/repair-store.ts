@@ -9,15 +9,6 @@ import { canTransition } from "./status";
 export const validOrderId = (id: string) => /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(id);
 const conflict = () => new UserInputError("La orden cambió en otra ventana. Recargá la página antes de guardar; no se aplicó este cambio.");
 export function repairStore(database: Database) {
-  async function ensureWorkshop() {
-    return database.transaction(async tx => {
-      await tx.execute(sql`select pg_advisory_xact_lock(837401)`);
-      const [existing] = await tx.select().from(workshops).limit(1);
-      if (existing) return existing;
-      const [created] = await tx.insert(workshops).values({ name: "OmniFix", publicName: "OmniFix" }).returning();
-      return created;
-    });
-  }
   async function getOrder(workshopId: string, id: string) {
     if (!validOrderId(id)) return null;
     const [order] = await database.select({ ...getTableColumns(repairOrders), customerName: customers.fullName, customerPhone: customers.phone, customerEmail: customers.email,
@@ -160,7 +151,7 @@ export function repairStore(database: Database) {
     const [photo] = await database.select({ ...getTableColumns(repairPhotos) }).from(repairPhotos).innerJoin(repairOrders, eq(repairPhotos.orderId, repairOrders.id)).where(and(eq(repairPhotos.id, id), eq(repairPhotos.orderId, orderId), eq(repairOrders.workshopId, workshopId))).limit(1);
     return photo ?? null;
   }
-  return { ensureWorkshop, getOrder, listOrders, listCustomers, getPublicOrder, createOrder, changeStatus, updateTechnical, rotateToken, respondToQuote, addPayment, addPart, createWarrantyReturn, addPhoto, getPhoto };
+  return { getOrder, listOrders, listCustomers, getPublicOrder, createOrder, changeStatus, updateTechnical, rotateToken, respondToQuote, addPayment, addPart, createWarrantyReturn, addPhoto, getPhoto };
 }
 export type RepairStore = ReturnType<typeof repairStore>;
 export type RepairOrder = NonNullable<Awaited<ReturnType<RepairStore["getOrder"]>>>;

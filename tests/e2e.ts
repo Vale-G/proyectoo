@@ -8,6 +8,7 @@ import { testDatabase } from './database';
 
 async function main() {
   const db = await testDatabase();
+  await db.pg.exec("INSERT INTO workshops(id,name,public_name) VALUES('20000000-0000-4000-8000-000000000001','OmniFix','OmniFix'); INSERT INTO workshop_members(workshop_id,user_id,role) VALUES('20000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000001','owner')");
   const origin = 'http://127.0.0.1:3177';
   const authOrigin = 'http://127.0.0.1:3180';
   const adminEmail = 'qa-admin@example.com';

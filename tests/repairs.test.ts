@@ -34,7 +34,7 @@ test('PostgreSQL integration using production postgres.js driver, no external da
     });
     await t.test('migration closes all workshop tables to Supabase public roles', async () => {
       const result = await env.pg.query<{relname:string;relrowsecurity:boolean;anon_select:boolean;authenticated_select:boolean}>("select c.relname,c.relrowsecurity,has_table_privilege('anon',c.oid,'SELECT') as anon_select,has_table_privilege('authenticated',c.oid,'SELECT') as authenticated_select from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'");
-      assert.deepEqual(result.rows.map(row=>row.relname).sort(), ['workshops','customers','devices','repair_orders','repair_order_events','repair_photos','repair_payments','repair_parts','omnifix_environment'].sort());
+      assert.deepEqual(result.rows.map(row=>row.relname).sort(), ['workshops','customers','devices','repair_orders','repair_order_events','repair_photos','repair_payments','repair_parts','omnifix_environment','workshop_members'].sort());
       for(const row of result.rows){assert.equal(row.relrowsecurity,true,row.relname);assert.equal(row.anon_select,false,row.relname);assert.equal(row.authenticated_select,false,row.relname);}
     });
     await t.test('native CI uses independent PostgreSQL backends for contention', { skip: !env.native }, async () => {
@@ -43,7 +43,7 @@ test('PostgreSQL integration using production postgres.js driver, no external da
       const two=await second.client<{pid:number}[]>`select pg_backend_pid() as pid`;
       assert.notEqual(one.rows[0].pid,two[0].pid);
     });
-    const workshop = await store.ensureWorkshop();
+    const [workshop] = await env.database.insert((await import('../src/db/schema')).workshops).values({name:'OmniFix',publicName:'OmniFix'}).returning();
     const order = await store.createOrder(workshop.id, fixture());
     await t.test('received to warranty persists, survives reread and has matching history', async () => {
       assert.equal(canTransition('received','under_warranty'),true);
