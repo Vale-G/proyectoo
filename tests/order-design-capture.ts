@@ -1,3 +1,4 @@
+import {assertControlContrast} from './contrast';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -74,13 +75,41 @@ async function main() {
           assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false,screen+' overflow');
           await page.evaluate(()=>{if(document.activeElement instanceof HTMLElement) document.activeElement.blur();window.scrollTo(0,0)});
           await expect.poll(()=>page.evaluate(()=>window.scrollY)).toBe(0);
+          await assertControlContrast(page);
+          if(screen==='list' && theme==='dark' && device==='mobile'){
+            const chip=page.locator('.filters a').last();await chip.evaluate(el=>{el.setAttribute('style','background:#fff;color:#fff')});
+            await assert.rejects(assertControlContrast(page),/contrast/);await chip.evaluate(el=>el.removeAttribute('style'));await assertControlContrast(page);
+          }
           await page.screenshot({path:'tmp/orders-design/'+screen+'-'+theme+'-'+device+'.png',fullPage:false});
         }
       }
     }
+    await page.goto(origin+'/orders/'+detailId+'?tab=pruebas');
+    await page.getByText('Ubicación física · Sin asignar',{exact:true}).click();
+    await page.getByLabel('Nueva ubicación del taller',{exact:true}).fill('Bandeja A1');
+    await page.getByRole('button',{name:'Crear ubicación',exact:true}).click();
+    await expect(page.getByRole('status').filter({hasText:'Ubicación disponible'})).toBeVisible();
+    await page.getByLabel('Ubicación',{exact:true}).selectOption({label:'Bandeja A1'});
+    await page.getByRole('button',{name:'Guardar ubicación',exact:true}).click();
+    await expect(page.getByRole('status').filter({hasText:'Ubicación guardada'})).toBeVisible();
+    await page.reload();await expect(page.getByText('Ubicación física · Bandeja A1',{exact:true})).toBeVisible();
+    for(const select of await page.locator('select[name^=final_]').all()) await select.selectOption('passed');
+    await page.locator('select[name=final_power]').selectOption('not_tested');
+    await page.getByRole('button',{name:'Guardar pruebas finales',exact:true}).click();
+    await expect(page.getByRole('alert').filter({hasText:'Revisá los resultados finales'})).toBeVisible();await assertControlContrast(page);
+    await page.locator('select[name=final_power]').selectOption('passed');
+    await page.getByRole('button',{name:'Guardar pruebas finales',exact:true}).click();
+    await expect(page.getByRole('status')).toContainText('Pruebas finales guardadas');
+    await page.reload();await expect(page.locator('select[name=final_power]')).toHaveValue('passed');
+    for(const theme of ['dark','light']){
+      await context.addCookies([{name:'workshop_appearance',value:theme,url:origin}]);await page.reload();
+      await assertControlContrast(page);
+      await page.screenshot({path:'tmp/orders-design/final-tests-'+theme+'-mobile.png',fullPage:false});
+    }
     await page.goto(origin+'/orders?q=QA+Dos&status=awaiting_approval');
     await expect(page.locator('.orders-mobile-list li')).toHaveCount(1);
     await expect(page.locator('.orders-mobile-list')).toContainText('Cliente QA Dos');
+    assert.deepEqual(errors,[]);
     console.log('Orders UX PASS: theme captures, staged field retention, unlock metadata, tabs, responsive lists and combined filters.');
   } catch(error) { console.error('E2E original error:',error);console.error(logs.slice(-3000));try{if(debugPage&&!debugPage.isClosed()){await mkdir('tmp/e2e',{recursive:true});await debugPage.screenshot({path:'tmp/e2e/failure.png',fullPage:true});console.error('URL',debugPage.url(),(await debugPage.locator('body').innerText()).slice(-5000));}}catch{}throw error; }
   finally { await browser?.close();server.kill();authServer.close();await db.close(); }
