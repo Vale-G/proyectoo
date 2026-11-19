@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { resolveWorkshop, WorkshopAccessError } from "./workshop-membership";
 import { redirect } from "next/navigation";
 import { requireWorkshopAccess } from "./auth";
 import { db } from "@/db/client";
@@ -7,12 +9,18 @@ import { repairStore } from "./repair-store";
 import type { IntakeOrder } from "./intake";
 
 export async function privateStore() {
-  await requireWorkshopAccess();
+  const user = await requireWorkshopAccess();
   if (!process.env.DATABASE_URL) redirect("/configuracion");
   const database = db();
   await assertDatabaseReady(database);
   const store = repairStore(database);
-  const workshop = await store.ensureWorkshop();
+  const selectedId = (await cookies()).get("workshop_id")?.value;
+  let workshop;
+  try { ({ workshop } = await resolveWorkshop(database, user.id, selectedId)); }
+  catch (error) {
+    if (error instanceof WorkshopAccessError) redirect("/talleres");
+    throw error;
+  }
   return { store, workshop };
 }
 export async function ensureWorkshop() { return (await privateStore()).workshop; }

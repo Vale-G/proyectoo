@@ -1,5 +1,5 @@
 import type { Consent, IntakeData } from "@/lib/intake";
-import { pgEnum, pgTable, text, timestamp, uuid, varchar, jsonb, integer, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, text, timestamp, uuid, varchar, jsonb, boolean, integer, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const repairStatus = pgEnum("repair_status", [
   "received",
@@ -122,5 +122,15 @@ export const repairParts = pgTable("repair_parts", {
   costCents: text("cost_cents"),
   priceCents: text("price_cents"),
   warrantyUntil: timestamp("warranty_until", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const workshopMemberRole = pgEnum("workshop_member_role", ["owner", "admin", "technician", "reception"]);
+export const workshopMembers = pgTable("workshop_members", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workshopId: uuid("workshop_id").notNull().references(() => workshops.id, { onDelete: "restrict" }),
+  userId: uuid("user_id").notNull(),
+  role: workshopMemberRole("role").notNull(),
+  active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -13,7 +13,7 @@ export function workshopAuthConfig(): WorkshopAuthConfig {
 }
 
 export function configuredWorkshopAuth(config = workshopAuthConfig()) {
-  return Boolean(config.supabaseUrl && config.supabasePublishableKey && config.adminEmail);
+  return Boolean(config.supabaseUrl && config.supabasePublishableKey);
 }
 
 export function isWorkshopAdminEmail(email: string | null | undefined, config = workshopAuthConfig()) {
@@ -24,4 +24,10 @@ type AuthUser = { email?: string | null; email_confirmed_at?: string | null; ide
 
 export function isAuthorizedWorkshopUser(user: AuthUser | null | undefined, config = workshopAuthConfig()) {
   return Boolean(user?.email_confirmed_at && user.identities?.some(identity => identity.provider === "google") && isWorkshopAdminEmail(user.email, config));
+}
+
+
+// Admission to tenant data still requires an active database membership.
+export function isVerifiedWorkshopIdentity(user: AuthUser | null | undefined) {
+  return Boolean(user?.email_confirmed_at && user.identities?.some(identity => identity.provider === "google"));
 }

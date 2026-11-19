@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
-import { configuredWorkshopAuth, isAuthorizedWorkshopUser, workshopAuthConfig } from "./lib/workshop-auth";
+import { configuredWorkshopAuth, isVerifiedWorkshopIdentity, workshopAuthConfig } from "./lib/workshop-auth";
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -30,7 +30,7 @@ export async function proxy(request: NextRequest) {
       },
     });
     const { data: { user }, error } = await supabase.auth.getUser();
-    if (!error && isAuthorizedWorkshopUser(user, authConfig)) return response;
+    if (!error && isVerifiedWorkshopIdentity(user)) return response;
   }
   if (["GET", "HEAD"].includes(request.method)) return NextResponse.redirect(new URL("/login", `${request.nextUrl.protocol}//${request.headers.get("host") ?? request.nextUrl.host}`));
   return NextResponse.json({ error: "La sesión venció. Volvé a ingresar al taller." }, { status: 401, headers: { "Cache-Control": "no-store" } });

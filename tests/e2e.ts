@@ -8,6 +8,7 @@ import { testDatabase } from './database';
 
 async function main() {
   const db = await testDatabase();
+  await db.pg.exec("INSERT INTO workshops(id,name,public_name) VALUES('20000000-0000-4000-8000-000000000001','OmniFix','OmniFix'); INSERT INTO workshop_members(workshop_id,user_id,role) VALUES('20000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000001','owner')");
   const origin = 'http://127.0.0.1:3177';
   const authOrigin = 'http://127.0.0.1:3180';
   const adminEmail = 'qa-admin@example.com';
@@ -21,7 +22,7 @@ async function main() {
     response.writeHead(404, {'content-type':'application/json'});response.end('{}');
   });
   await new Promise<void>((resolve,reject)=>authServer.listen(3180,'127.0.0.1',resolve).once('error',reject));
-  const server = spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3177'], { stdio:['ignore','pipe','pipe'], env:{...process.env,DATABASE_URL:db.url,VERCEL_ENV:'preview',APP_URL:origin,NEXT_PUBLIC_SUPABASE_URL:authOrigin,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_e2e',WORKSHOP_ADMIN_EMAIL:adminEmail} });
+  const server = spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3177'], { stdio:['ignore','pipe','pipe'], env:{...process.env,DATABASE_URL:db.url,VERCEL_ENV:'preview',APP_URL:origin,NEXT_PUBLIC_SUPABASE_URL:authOrigin,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_e2e',WORKSHOP_ADMIN_EMAIL:'legacy-owner@example.com'} });
   let logs='';server.stderr.on('data',d=>logs+=d.toString());
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let debugPage: import('@playwright/test').Page | undefined;

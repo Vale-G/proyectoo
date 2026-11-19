@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { configuredWorkshopAuth, isAuthorizedWorkshopUser } from "@/lib/workshop-auth";
+import { configuredWorkshopAuth, isVerifiedWorkshopIdentity } from "@/lib/workshop-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) return redirect("/login?error=callback");
   const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !isAuthorizedWorkshopUser(user)) {
+  if (userError || !isVerifiedWorkshopIdentity(user)) {
     await supabase.auth.signOut({ scope: "local" });
     return redirect("/login?error=unauthorized");
   }

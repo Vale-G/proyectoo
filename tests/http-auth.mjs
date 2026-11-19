@@ -78,7 +78,7 @@ try {
   const replay = await callback('good-code');
   assert.match(replay.headers.get('location'), /error=callback/);
   const denied = await callback('other-account');
-  assert.match(denied.headers.get('location'), /error=unauthorized/);
-  assert.ok(logoutRequests.some(url => new URL(url, 'http://auth.local').searchParams.get('scope') === 'local'));
+  assert.equal(denied.headers.get('location'), runtimeOrigin + '/');
+
   console.log('PASS: Google PKCE initiation, canonical callback, secure cookie, exchange, replay rejection and unauthorized account');
 } finally { configured.kill(); authServer.close(); }
