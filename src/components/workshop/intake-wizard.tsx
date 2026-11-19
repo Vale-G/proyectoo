@@ -27,7 +27,7 @@ export function IntakeWizard({children,action}:{children:ReactNode;action:(data:
   }
   return <div className="intake-wizard" onSubmitCapture={validate}>
     <nav className="intake-progress" aria-label="Etapas de recepción">
-      {stages.map((name,index)=><button key={name} type="button" aria-current={index===step?"step":undefined} onClick={()=>setStep(index)}><span>{index+1}</span>{name}</button>)}
+      {stages.map((name,index)=><button key={name} type="button" aria-current={index===step?"step":undefined} onClick={event=>{setStep(index);event.currentTarget.scrollIntoView({block:"nearest",inline:"center"})}}><span>{index+1}</span>{name}</button>)}
     </nav>
     <p className="wizard-stage-label" role="status">Etapa {step+1} de {stages.length} · {stages[step]}</p>
     <ActionForm action={action} className="intake-form" noValidate>
