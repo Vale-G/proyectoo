@@ -1,33 +1,33 @@
-import { Brand } from "@/components/brand";
 import Link from "next/link";
 import { listOrders } from "@/lib/orders";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { statusLabels } from "@/lib/status";
+import { AppFrame } from "@/components/workshop/frame";
+import { MetricCard } from "@/components/workshop/metric-card";
+import { StatusBadge } from "@/components/status-badge";
+export { AppFrame } from "@/components/workshop/frame";
+export const dynamic="force-dynamic";
 
-export const dynamic = "force-dynamic";
-
-const countable = ["received", "diagnosing", "awaiting_approval", "awaiting_part", "repairing", "ready_for_pickup"] as const;
-
-export default async function Dashboard() {
-  const orders = await listOrders();
-  const counts = Object.fromEntries(countable.map((status) => [status, orders.filter((order) => order.status === status).length]));
+export default async function Dashboard(){
+  const orders=await listOrders();
+  const count=(status:string)=>orders.filter(o=>o.status===status).length;
+  const attention=orders.filter(o=>["awaiting_approval","awaiting_part","ready_for_pickup"].includes(o.status));
   return <AppFrame>
-    <header className="page-header"><div><p className="eyebrow">Panel de OmniFix</p><h1>El taller, bajo control.</h1><p>Revisá prioridades, avances y equipos próximos a entregar.</p></div><Link className="button primary" href="/orders/new">+ Nueva orden</Link></header>
-    <section className="metrics">
-      <Metric href="/orders?status=received" count={counts.received} label="Recién ingresados" tone="blue" />
-      <Metric href="/orders?status=diagnosing" count={counts.diagnosing} label="En diagnóstico" tone="amber" />
-      <Metric href="/orders?status=awaiting_approval" count={counts.awaiting_approval} label="Esperando aprobación" tone="violet" />
-      <Metric href="/orders?status=awaiting_part" count={counts.awaiting_part} label="Esperando repuesto" tone="orange" />
-      <Metric href="/orders?status=repairing" count={counts.repairing} label="En reparación" tone="blue" />
-      <Metric href="/orders?status=ready_for_pickup" count={counts.ready_for_pickup} label="Listos para retirar" tone="green" />
+    <header className="workshop-page-header"><div><p className="workshop-eyebrow">Resumen del taller</p><h1>Inicio</h1><p className="muted">El taller, bajo control.</p></div><Link href="/orders/new" className="button primary">＋ Nueva orden</Link></header>
+    <section className="workshop-metrics" aria-label="Estado de las órdenes">
+      <MetricCard href="/orders?status=received" count={count("received")} label="Equipos recibidos" tone="info" icon="▯"/>
+      <MetricCard href="/orders?status=diagnosing" count={count("diagnosing")} label="En diagnóstico" tone="warning" icon="⌕"/>
+      <MetricCard href="/orders?status=awaiting_approval" count={count("awaiting_approval")} label="Presupuestos por aprobar" tone="quote" icon="◇"/>
+      <MetricCard href="/orders?status=ready_for_pickup" count={count("ready_for_pickup")} label="Listos para entregar" tone="success" icon="✓"/>
     </section>
-    <section className="two-columns"><article className="panel"><div className="panel-head"><h2>Necesita atención</h2><Link href="/orders">Ver órdenes</Link></div><div className="attention-list">
-      {orders.filter((order) => ["awaiting_approval", "awaiting_part", "repairing", "ready_for_pickup"].includes(order.status)).slice(0, 5).map((order) => <Link className="attention-row" key={order.id} href={`/orders/${order.id}`}><span className={`dot ${order.status}`} /><div><strong>#{order.orderNumber} · {order.deviceBrand} {order.deviceModel}</strong><small>{order.customerName} · {statusLabels[order.status]} · Entrega: {formatDate(order.estimatedCompletion)}</small></div><b>{formatMoney(order.estimateCents)}</b></Link>)}
-      {!orders.length && <p className="empty">Todavía no hay equipos ingresados. Creá la primera orden para comenzar.</p>}
-    </div></article><aside className="stack"><article className="panel padded"><h2>Una recepción completa</h2><p>Registrá el equipo, sus accesorios y el estado de ingreso. Después entregá el comprobante con seguimiento al cliente.</p><Link className="button primary full" href="/orders/new">Crear orden de reparación</Link></article><article className="panel padded"><h2>Privacidad del QR</h2><p>El enlace público usa un token aleatorio separado del número correlativo de orden. No revela IMEI, notas internas ni costos.</p></article></aside></section>
+    <section className="workshop-panel recent-orders"><div className="workshop-panel-heading"><div><h2>Órdenes recientes</h2><p className="muted">Últimos equipos ingresados</p></div><Link href="/orders">Ver todas →</Link></div>
+      {orders.length ? <><ul className="recent-mobile-list">{orders.slice(0,8).map(o=><li key={o.id}><Link href={"/orders/"+o.id}><span className="mobile-order-top"><strong>#{o.orderNumber}</strong><StatusBadge status={o.status}/></span><span className="mobile-order-device">{o.deviceBrand} {o.deviceModel}</span><span className="muted">{o.customerName} · {formatDate(o.createdAt)}</span></Link></li>)}</ul><div className="workshop-table-scroll" role="region" aria-label="Órdenes recientes" tabIndex={0}><table className="workshop-table"><thead><tr><th scope="col">Nº</th><th scope="col">Cliente</th><th scope="col">Equipo</th><th scope="col">Estado</th><th scope="col">Ingreso</th></tr></thead><tbody>{orders.slice(0,8).map(o=><tr key={o.id}><td><Link href={"/orders/"+o.id}>#{o.orderNumber}</Link></td><td>{o.customerName}</td><td>{o.deviceBrand} {o.deviceModel}</td><td><StatusBadge status={o.status}/></td><td>{formatDate(o.createdAt)}</td></tr>)}</tbody></table></div></>
+      : <div className="workshop-empty"><span aria-hidden="true">▤</span><h3>Tu taller empieza con una orden</h3><p>Registrá el primer equipo para ver su avance acá.</p><Link className="button primary" href="/orders/new">Recibir equipo</Link></div>}
+    </section>
+    <div className="workshop-lower-grid"><section className="workshop-panel"><div className="workshop-panel-heading"><h2>Para continuar hoy</h2><span className="muted">{attention.length} órdenes</span></div>
+      {attention.length ? <ul className="workshop-attention">{attention.slice(0,4).map(o=><li key={o.id}><Link href={"/orders/"+o.id}><span><strong>{o.deviceBrand} {o.deviceModel}</strong><small>#{o.orderNumber} · {o.customerName}</small></span><StatusBadge status={o.status}/></Link></li>)}</ul>:<p className="workshop-panel-body muted">Sin presupuestos, repuestos o entregas pendientes.</p>}
+    </section><section className="workshop-panel"><div className="workshop-panel-heading"><h2>Trabajo en curso</h2></div><div className="workshop-queue">
+      {(["repairing","awaiting_part"] as const).map(status=><Link key={status} href={"/orders?status="+status}><span>{statusLabels[status]}</span><strong>{count(status)}</strong><span aria-hidden="true">→</span></Link>)}
+    </div><Link className="workshop-inline-link" href="/estadisticas">Consultar estadísticas →</Link></section></div>
   </AppFrame>;
 }
-
-function Metric({ href, count, label, tone }: { href: string; count: number; label: string; tone: string }) { return <Link className={`metric ${tone}`} href={href}><b>{count}</b><span><i />{label}</span></Link>; }
-
-export function AppFrame({ children }: { children: React.ReactNode }) { return <div className="app-shell"><aside className="sidebar"><Link className="brand" href="/"><Brand /></Link><nav><Link href="/talleres">Talleres</Link><Link href="/">▦ <span>Inicio</span></Link><Link href="/orders">▤ <span>Órdenes</span></Link><Link className="nav-new" href="/orders/new">＋ <span>Nueva orden</span></Link><Link href="/clientes">● <span>Clientes</span></Link><Link href="/estadisticas">◉ <span>Estadísticas</span></Link><a href="/orders/export.csv">⇩ <span>Exportar CSV</span></a><Link href="/orders?status=under_warranty">▧ <span>Garantías</span></Link></nav><div className="sidebar-footer"><span className="avatar">OF</span><div><strong>OmniFix</strong><small>Propietario</small></div></div><form action="/auth/logout" method="post" className="sidebar-logout"><button type="submit">Cerrar sesión</button></form></aside><div className="mobile-nav"><Link href="/">OmniFix</Link><Link href="/orders">Órdenes</Link><Link href="/estadisticas">Métricas</Link><Link href="/orders/new">+ Ingreso</Link><form action="/auth/logout" method="post"><button>Salir</button></form></div><main className="content">{children}</main></div>; }
