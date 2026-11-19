@@ -34,7 +34,7 @@ test('PostgreSQL integration using production postgres.js driver, no external da
     });
     await t.test('migration closes all workshop tables to Supabase public roles', async () => {
       const result = await env.pg.query<{relname:string;relrowsecurity:boolean;anon_select:boolean;authenticated_select:boolean}>("select c.relname,c.relrowsecurity,has_table_privilege('anon',c.oid,'SELECT') as anon_select,has_table_privilege('authenticated',c.oid,'SELECT') as authenticated_select from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'");
-      assert.deepEqual(result.rows.map(row=>row.relname).sort(), ['workshops','customers','devices','repair_orders','repair_order_events','repair_photos','repair_payments','repair_parts','omnifix_environment','workshop_members'].sort());
+      assert.deepEqual(result.rows.map(row=>row.relname).sort(), ['workshops','customers','devices','repair_orders','repair_order_events','repair_photos','repair_payments','repair_parts','omnifix_environment','workshop_members','workshop_locations'].sort());
       for(const row of result.rows){assert.equal(row.relrowsecurity,true,row.relname);assert.equal(row.anon_select,false,row.relname);assert.equal(row.authenticated_select,false,row.relname);}
     });
     await t.test('native CI uses independent PostgreSQL backends for contention', { skip: !env.native }, async () => {
@@ -169,7 +169,7 @@ test('PostgreSQL integration using production postgres.js driver, no external da
       for(const layout of ['a5','double','label'] as const){
         const result=await buildIntakeLayout(fresh,'https://omnifix.example',layout);const pdf=await PDFDocument.load(result.bytes);assert.equal(pdf.getPageCount(),1);
         const [width,height]=expected[layout];assert.ok(Math.abs(pdf.getPage(0).getWidth()-width)<1);assert.ok(Math.abs(pdf.getPage(0).getHeight()-height)<1);
-        assert.equal(result.url,trackingUrl(fresh.publicToken,'https://omnifix.example'));
+        assert.equal(result.url,layout==='label'?`https://omnifix.example/orders/${fresh.id}`:trackingUrl(fresh.publicToken,'https://omnifix.example'));
       }
     });
   } finally { await env.close(); }
