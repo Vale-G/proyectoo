@@ -23,6 +23,7 @@ export const checklistSchema = z.record(z.string(), z.object({ result: z.enum(["
   if (Object.keys(items).some(key => !(key in TESTS))) ctx.addIssue({ code: "custom", message: "Checklist desconocido." });
 });
 export const intakeSchema = z.object({
+  unlockMethod: z.enum(["not_provided","none","pin","password","pattern","in_person"]).optional(),
   line: text(40).default(""), sim: z.enum(["not_received", "received"]), sd: z.enum(["not_received", "received"]),
   power: z.enum(["on", "off", "unknown"]), moisture: z.enum(["yes", "no", "unknown"]), impact: z.enum(["yes", "no", "unknown"]),
   checklist: checklistSchema,
@@ -56,7 +57,7 @@ export function parseIntake(form: FormData): IntakeOrder {
   return intakeOrderSchema.parse({
     ...Object.fromEntries(["customerName", "phone", "email", "category", "brand", "model", "color", "serialNumber", "reportedIssue", "intakeCondition", "accessories", "proposedSolution", "status", "acceptedName", "acceptanceMethod", "estimatedCompletion"].map(key => [key, value(key)])),
     estimateCents: moneyToCents(value("estimate")), depositCents: moneyToCents(value("deposit")), accepted: form.get("accepted") === "on", eraseAuthorized: form.get("eraseAuthorized") === "on",
-    intake: { line: value("line"), sim: value("sim"), sd: value("sd"), power: value("power"), moisture: value("moisture"), impact: value("impact"), checklist: Object.fromEntries(Object.keys(TESTS).map(key => [key, { result: value(`test_${key}`), reason: value(`reason_${key}`) }])) },
+    intake: { unlockMethod: value("unlockMethod") || undefined, line: value("line"), sim: value("sim"), sd: value("sd"), power: value("power"), moisture: value("moisture"), impact: value("impact"), checklist: Object.fromEntries(Object.keys(TESTS).map(key => [key, { result: value(`test_${key}`), reason: value(`reason_${key}`) }])) },
   });
 }
 export function validationMessage(error: unknown) {

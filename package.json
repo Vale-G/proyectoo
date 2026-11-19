@@ -13,7 +13,7 @@
     "test": "node --import tsx --test tests/*.test.ts tests/auth.test.mjs",
     "test:e2e": "node scripts/test-chromium.mjs && node --import tsx tests/e2e.ts",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run build && node tests/http-auth.mjs && npm run test:e2e",
-    "test:design": "node scripts/test-chromium.mjs && node --import tsx tests/design-capture.ts",
+    "test:design": "node scripts/test-chromium.mjs && node --import tsx tests/design-capture.ts && node --import tsx tests/order-design-capture.ts",
     "test:preview": "node scripts/test-chromium.mjs && node --import tsx tests/preview-e2e.ts"
   },
   "dependencies": {
