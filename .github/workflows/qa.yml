@@ -48,4 +48,5 @@ jobs:
             tmp/pdfs/
             tmp/e2e/
             tmp/design/
+            tmp/orders-design/
           retention-days: 7

@@ -153,3 +153,85 @@ button,input,textarea,select {font:inherit}
  .mobile-order-top>strong {color:var(--color-info)}
  .mobile-order-device {font-size:13px}
 }
+
+/* Repair operations use the same theme tokens as the dashboard. */
+.workshop-shell .page-header h1,.workshop-shell .order-header h1 {color:var(--color-text);font-size:28px}
+.workshop-shell .form-section,.workshop-shell .padded {border:1px solid var(--color-border);border-radius:var(--radius-panel);background:var(--color-surface);padding:24px}
+.workshop-shell .fields label,.workshop-shell .status-form label,.unlock-method {color:var(--color-text);font-size:13px;line-height:1.5}
+.workshop-shell .fields label>span,.workshop-shell .status-form span {color:var(--color-muted)}
+.workshop-shell input,.workshop-shell select,.workshop-shell textarea {min-height:44px;border:1px solid var(--color-border);border-radius:8px;padding:12px;max-width:100%;width:100%}
+.workshop-shell textarea {min-height:100px;resize:vertical}
+.workshop-shell input[type=checkbox] {width:20px;min-height:20px;flex:none}
+.workshop-shell .checklist select,.workshop-shell .checklist input {min-width:0}
+.workshop-shell .fields {gap:18px}
+.intake-wizard {max-width:1000px;scroll-margin-top:100px}
+.intake-progress {display:flex;gap:8px;overflow:auto;padding:4px 0 12px}
+.intake-progress button {display:flex;align-items:center;gap:8px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-muted);border-radius:8px;min-height:48px;padding:10px 12px;cursor:pointer;font-size:12px;white-space:nowrap}
+.intake-progress button>span {display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--color-surface-raised)}
+.intake-progress button[aria-current=step] {color:var(--color-info);border-color:var(--color-info);background:var(--state-info-bg)}
+.wizard-stage-label {color:var(--color-muted);font-size:13px;margin:10px 0 20px}
+.intake-form [data-stage] {margin-bottom:20px}
+.intake-form [data-stage][hidden] {display:none}
+.wizard-controls {display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin:20px 0}
+.wizard-expand {background:transparent;color:var(--color-info);border:0;min-height:44px;cursor:pointer;text-decoration:underline}
+.intake-form .form-feedback {position:relative;scroll-margin-top:100px}
+.unlock-method {display:grid;gap:8px;margin-top:20px}
+.repair-tabs {display:flex;gap:6px;overflow:auto;border-bottom:1px solid var(--color-border);margin:24px 0 12px;padding:0 0 8px}
+.repair-tabs a {display:flex;align-items:center;min-height:44px;padding:10px 14px;border-radius:8px;color:var(--color-muted);text-decoration:none;white-space:nowrap;font-size:13px}
+.repair-tabs a[aria-current=page] {background:var(--state-info-bg);color:var(--color-info);box-shadow:inset 0 -2px var(--color-accent)}
+.private-boundary {color:var(--color-muted);font-size:12px;line-height:1.6;margin:12px 0 24px}
+.workshop-shell .order-header {border-radius:14px;border:1px solid var(--color-border);background:var(--color-surface);padding:24px}
+.workshop-shell .order-actions {gap:8px}
+.workshop-shell .order-meta {gap:12px}
+.workshop-shell .order-meta span {padding:12px;background:var(--color-surface-raised);border-radius:8px;color:var(--color-muted)}
+.workshop-shell .order-meta b {color:var(--color-text)}
+.workshop-shell .detail-layout {grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:20px;align-items:start}
+.workshop-shell .detail-layout .stack {min-width:0}
+.workshop-shell .info {padding:12px 0;border-color:var(--color-border)}
+.workshop-shell .info>span {color:var(--color-muted)}
+.workshop-shell .info p {color:var(--color-text)}
+.workshop-shell .padded p {line-height:1.6}
+.initial-tests {list-style:none;padding:0;margin:16px 0}
+.initial-tests li {display:grid;grid-template-columns:1fr auto;gap:8px;border-bottom:1px solid var(--color-border);padding:16px 0;font-size:13px}
+.initial-tests small {grid-column:1/-1;color:var(--color-muted)}
+.orders-result-count {color:var(--color-muted);font-size:12px}
+.orders-mobile-list {display:none}
+.priority {display:inline-flex;font-size:11px;border-radius:6px;padding:6px 8px;background:var(--state-warning-bg);color:var(--color-warning)}
+.priority.overdue {background:var(--state-danger-bg);color:var(--color-danger)}
+.priority.ready {background:var(--state-success-bg);color:var(--color-success)}
+.workshop-shell .filters {gap:8px;flex-wrap:wrap}
+.workshop-shell .filters a {min-height:40px;display:inline-flex;align-items:center}
+.workshop-shell .table-panel {border-radius:14px;border:1px solid var(--color-border)}
+@media(max-width:1000px){.workshop-shell .detail-layout{grid-template-columns:1fr}}
+@media(max-width:700px){
+ .workshop-content{padding:20px 16px}
+ .workshop-page-header{margin-bottom:20px}
+ .workshop-lower-grid{gap:14px;margin-top:14px}
+ .workshop-panel-heading{padding:14px 16px}
+ .workshop-metric{padding:14px 12px;gap:6px}
+ .intake-form .fields{grid-template-columns:1fr}
+ .workshop-shell .form-section,.workshop-shell .padded,.workshop-shell .order-header{padding:18px}
+ .workshop-shell .page-header{flex-wrap:wrap}
+ .workshop-shell .checklist fieldset{grid-template-columns:1fr}
+ .workshop-shell .order-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
+ .workshop-shell .order-actions .button{font-size:11px;padding:10px}
+ .workshop-shell .order-meta{grid-template-columns:1fr 1fr}
+ .orders-desktop{display:none}
+ .orders-mobile-list{display:grid;gap:12px;list-style:none;padding:0;margin:18px 0}
+ .orders-mobile-list li{border:1px solid var(--color-border);background:var(--color-surface);border-radius:12px}
+ .orders-mobile-list a{display:block;padding:18px;text-decoration:none;color:var(--color-text)}
+ .orders-mobile-list h2{font-size:17px;margin:14px 0 8px}
+ .orders-mobile-list p{font-size:12px;line-height:1.5}
+ .mobile-order-bottom{display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:11px}
+ .wizard-controls{position:sticky;bottom:0;background:var(--color-canvas);padding:12px 0;z-index:5}
+}
+.order-documents {margin:0}
+.order-documents summary {display:flex;align-items:center;min-height:44px;padding:10px 12px;border:1px solid var(--color-border);border-radius:8px;font-size:12px;color:var(--color-info)}
+.order-documents>div {display:flex;flex-wrap:wrap;gap:8px;padding-top:10px}
+@media(max-width:700px){
+ .workshop-shell .order-actions .order-documents {grid-column:1/-1}
+ .workshop-shell .order-actions .order-documents>div {display:grid;grid-template-columns:1fr 1fr}
+ .workshop-shell .order-meta {display:grid;grid-template-columns:1fr 1fr;width:100%}
+ .workshop-shell .order-meta span {display:grid;gap:6px;font-size:11px}
+ .workshop-shell .order-header h1 {font-size:23px}
+}

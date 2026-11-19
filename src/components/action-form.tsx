@@ -3,7 +3,7 @@ import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ActionResult } from "@/lib/action-result";
 
-export function ActionForm({ action, children, className }: { action: (form: FormData) => Promise<ActionResult>; children: ReactNode; className?: string }) {
+export function ActionForm({ action, children, className, noValidate }: { action: (form: FormData) => Promise<ActionResult>; children: ReactNode; className?: string; noValidate?:boolean }) {
   const [feedback, setFeedback] = useState<ActionResult>({});
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -18,7 +18,7 @@ export function ActionForm({ action, children, className }: { action: (form: For
       } catch { setFeedback({ error: "No se pudo confirmar el guardado. Recargá la página y comprobá el estado antes de volver a intentar." }); }
     });
   }
-  return <form action={async data => { await action(data); }} onSubmit={submit} className={className} aria-busy={pending}><fieldset disabled={pending} className="action-fields">{children}</fieldset>
+  return <form noValidate={noValidate} action={async data => { await action(data); }} onSubmit={submit} className={className} aria-busy={pending}><fieldset disabled={pending} className="action-fields">{children}</fieldset>
     {pending && !feedback.success && !feedback.error && <p role="status" className="form-feedback">Guardando…</p>}
     {feedback.error && <p role="alert" className="form-feedback error">{feedback.error}</p>}
     {feedback.success && <p role="status" className="form-feedback success">{feedback.success}</p>}
