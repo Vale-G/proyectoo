@@ -59,6 +59,8 @@ export const repairOrders = pgTable("repair_orders", {
   initialStatus: repairStatus("initial_status"),
   initialEstimateCents: text("initial_estimate_cents"),
   initialDepositCents: text("initial_deposit_cents"),
+  locationId: uuid("location_id"),
+  finalTests: jsonb("final_tests").$type<import("@/lib/repair-checks").FinalChecks>(),
   revision: integer("revision").notNull().default(0),
   publicSummary: text("public_summary"),
   partsCents: text("parts_cents"),
@@ -133,4 +135,11 @@ export const workshopMembers = pgTable("workshop_members", {
   role: workshopMemberRole("role").notNull(),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const workshopLocations = pgTable("workshop_locations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workshopId: uuid("workshop_id").notNull().references(() => workshops.id, {onDelete:"restrict"}),
+  name: varchar("name", {length:80}).notNull(),
+  active: boolean("active").notNull().default(true),
 });

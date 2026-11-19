@@ -30,7 +30,7 @@ export const intakeSchema = z.object({
 });
 export const intakeOrderSchema = z.object({
   customerName: text(160).min(1, "Ingresá el nombre del cliente."), phone: text(32).min(1, "Ingresá un teléfono de contacto."),
-  email: z.union([z.email().max(254), z.literal("")]).default(""), category: z.enum(["Celular / Tablet", "Consola / Joystick", "Notebook / PC", "TV / Monitor", "Otro equipo electrónico"]),
+  email: z.union([z.email().max(254), z.literal("")]).default(""), category: z.enum(["Celular / Tablet", "Consola", "Joystick", "Consola / Joystick", "Notebook / PC", "TV / Monitor", "Otro equipo electrónico"]),
   brand: text(80).default(""), model: text(120).min(1, "Ingresá el modelo."), color: text(48).default(""), serialNumber: text(128).default(""),
   reportedIssue: text(2000).min(1, "Describí la falla declarada."), intakeCondition: text(2000).default(""), accessories: text(1000).default(""), proposedSolution: text(2000).default(""),
   estimateCents: z.string().regex(/^\d{1,12}$/).nullable(), depositCents: z.string().regex(/^\d{1,12}$/).nullable(),

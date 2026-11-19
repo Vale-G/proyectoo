@@ -76,3 +76,18 @@ export async function createWarrantyReturn(form:FormData):Promise<ActionResult>{
   try{const input=identitySchema.extend({warrantyIssue:short(2000).min(5,"Describí el motivo del reingreso."),warrantyAccessories:short(1000)}).parse(Object.fromEntries(form));const created=await store.createWarrantyReturn(workshop.id,input.orderId,input.revision,input.warrantyIssue,input.warrantyAccessories);createdId=created.id;}catch(error){return {error:validationMessage(error)};}
   refresh(createdId!);redirect(`/orders/${createdId}`);
 }
+
+export async function configureLocation(form:FormData):Promise<ActionResult>{
+ const {store,workshop}=await privateStore();
+ try{const name=short(80).min(1,"Ingresá el nombre de la ubicación.").parse(form.get("locationName"));await store.createLocation(workshop.id,name);revalidatePath("/orders");return {success:"Ubicación disponible para este taller."};}catch(error){return {error:validationMessage(error)};}
+}
+export async function saveOrderLocation(form:FormData):Promise<ActionResult>{
+ const {store,workshop}=await privateStore();
+ try{const input=identitySchema.extend({locationId:z.union([z.literal(""),z.uuid()])}).parse(Object.fromEntries(form));await store.saveCycle(workshop.id,input.orderId,input.revision,{locationId:input.locationId||null});refresh(input.orderId);return {success:"Ubicación guardada en el historial."};}catch(error){return {error:validationMessage(error)};}
+}
+export async function saveFinalTests(form:FormData):Promise<ActionResult>{
+ const {store,workshop}=await privateStore();
+ try{const input=identitySchema.parse(Object.fromEntries(form));const order=await store.getOrder(workshop.id,input.orderId);if(!order) throw new UserInputError("Orden no encontrada.");
+ const {categoryChecks}=await import("@/lib/repair-checks");const items=Object.fromEntries(categoryChecks(order.deviceCategory,order.deviceModel).map(key=>[key,{result:form.get(`final_${key}`),reason:form.get(`final_reason_${key}`)}]));
+ await store.saveCycle(workshop.id,input.orderId,input.revision,{finalTests:{items,recordedAt:new Date().toISOString()}});refresh(input.orderId);return {success:"Pruebas finales guardadas. La recepción original no se modificó."};}catch(error){return {error:validationMessage(error)};}
+}

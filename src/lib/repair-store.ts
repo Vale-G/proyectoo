@@ -1,9 +1,10 @@
 import { and, desc, eq, getTableColumns, ilike, or, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@/db/client";
-import { customers, devices, repairOrderEvents, repairOrders, repairParts, repairPayments, repairPhotos, workshops, type RepairStatus } from "@/db/schema";
+import { customers, devices, repairOrderEvents, repairOrders, repairParts, repairPayments, repairPhotos, workshops, workshopLocations, type RepairStatus } from "@/db/schema";
 import { formatMoney } from "./format";
 import { intakeOrderSchema, SERVICE_TERMS, TERMS_VERSION, UserInputError, type IntakeOrder } from "./intake";
+import { validateFinalChecks } from "./repair-checks";
 import { canTransition } from "./status";
 
 export const validOrderId = (id: string) => /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(id);
@@ -11,9 +12,9 @@ const conflict = () => new UserInputError("La orden cambió en otra ventana. Rec
 export function repairStore(database: Database) {
   async function getOrder(workshopId: string, id: string) {
     if (!validOrderId(id)) return null;
-    const [order] = await database.select({ ...getTableColumns(repairOrders), customerName: customers.fullName, customerPhone: customers.phone, customerEmail: customers.email,
+    const [order] = await database.select({ ...getTableColumns(repairOrders), workshopName: workshops.publicName, locationName: workshopLocations.name, customerName: customers.fullName, customerPhone: customers.phone, customerEmail: customers.email,
       deviceCategory: devices.category, deviceBrand: devices.brand, deviceModel: devices.model, deviceColor: devices.color, deviceSerial: devices.serialNumber,
-    }).from(repairOrders).innerJoin(devices, eq(repairOrders.deviceId, devices.id)).innerJoin(customers, eq(devices.customerId, customers.id))
+    }).from(repairOrders).innerJoin(workshops,eq(repairOrders.workshopId,workshops.id)).leftJoin(workshopLocations,and(eq(repairOrders.locationId,workshopLocations.id),eq(repairOrders.workshopId,workshopLocations.workshopId))).innerJoin(devices, eq(repairOrders.deviceId, devices.id)).innerJoin(customers, eq(devices.customerId, customers.id))
       .where(and(eq(repairOrders.id, id), eq(repairOrders.workshopId, workshopId))).limit(1);
     if (!order) return null;
     const [events, photos, payments, parts] = await Promise.all([
@@ -151,7 +152,31 @@ export function repairStore(database: Database) {
     const [photo] = await database.select({ ...getTableColumns(repairPhotos) }).from(repairPhotos).innerJoin(repairOrders, eq(repairPhotos.orderId, repairOrders.id)).where(and(eq(repairPhotos.id, id), eq(repairPhotos.orderId, orderId), eq(repairOrders.workshopId, workshopId))).limit(1);
     return photo ?? null;
   }
-  return { getOrder, listOrders, listCustomers, getPublicOrder, createOrder, changeStatus, updateTechnical, rotateToken, respondToQuote, addPayment, addPart, createWarrantyReturn, addPhoto, getPhoto };
+
+  async function listLocations(workshopId:string) {return database.select().from(workshopLocations).where(eq(workshopLocations.workshopId,workshopId)).orderBy(workshopLocations.name);}
+  async function createLocation(workshopId:string,name:string) {
+    const clean=name.trim();if(!clean||clean.length>80) throw new UserInputError("Ingresá una ubicación de hasta 80 caracteres.");
+    return database.insert(workshopLocations).values({workshopId,name:clean}).onConflictDoNothing().returning();
+  }
+  async function saveCycle(workshopId:string,id:string,revision:number,input:{locationId?:string|null;finalTests?:unknown}) {
+    return database.transaction(async tx=>{
+      const [current]=await tx.select({...getTableColumns(repairOrders),category:devices.category,model:devices.model}).from(repairOrders).innerJoin(devices,eq(repairOrders.deviceId,devices.id)).where(and(eq(repairOrders.id,id),eq(repairOrders.workshopId,workshopId))).for("update",{of:repairOrders});
+      if(!current) throw new UserInputError("Orden no encontrada.");if(current.revision!==revision) throw conflict();
+      let locationName="Sin ubicación";
+      if(input.locationId){
+        const [location]=await tx.select().from(workshopLocations).where(and(eq(workshopLocations.id,input.locationId),eq(workshopLocations.workshopId,workshopId),eq(workshopLocations.active,true)));
+        if(!location) throw new UserInputError("Ubicación no disponible para este taller.");locationName=location.name;
+      }
+      let finalTests;
+      try{if(input.finalTests!==undefined) finalTests=validateFinalChecks(input.finalTests,current.category,current.model);}catch{throw new UserInputError("Revisá los resultados finales y los motivos de las pruebas no realizadas o no aplicables.");}
+      if(current.deliveredAt&&finalTests) throw new UserInputError("Las pruebas de una entrega registrada no se pueden sobrescribir.");
+      const [changed]=await tx.update(repairOrders).set({...(input.locationId!==undefined?{locationId:input.locationId}:{}),...(finalTests?{finalTests}:{}),revision:sql`${repairOrders.revision} + 1`,updatedAt:new Date()}).where(and(eq(repairOrders.id,id),eq(repairOrders.workshopId,workshopId),eq(repairOrders.revision,revision))).returning();
+      if(!changed) throw conflict();
+      await tx.insert(repairOrderEvents).values({orderId:id,fromStatus:current.status,toStatus:current.status,note:JSON.stringify(finalTests?{operation:"final_tests",previous:current.finalTests,next:finalTests}:{operation:"location",previous:current.locationId,next:input.locationId,name:locationName})});
+      return changed;
+    });
+  }
+  return { listLocations, createLocation, saveCycle, getOrder, listOrders, listCustomers, getPublicOrder, createOrder, changeStatus, updateTechnical, rotateToken, respondToQuote, addPayment, addPart, createWarrantyReturn, addPhoto, getPhoto };
 }
 export type RepairStore = ReturnType<typeof repairStore>;
 export type RepairOrder = NonNullable<Awaited<ReturnType<RepairStore["getOrder"]>>>;
